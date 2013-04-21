@@ -10,7 +10,6 @@ import gevent
 from gevent import monkey
 monkey.patch_all()
 
-import os
 import gzip
 import json
 import time
@@ -24,18 +23,14 @@ fmt = "%Y-%m-%d"
 today = datetime.utcnow()
 dt = timedelta(-1)
 
-_path = os.path.dirname(os.path.abspath(__file__))
-languages = [l.strip() for l in open(os.path.join(_path, "languages.txt"))]
-evttypes = [l.strip() for l in open(os.path.join(_path, "evttypes.txt"))]
-
 redis_pool = redis.ConnectionPool()
-
-times = ["night", "morning", "afternoon", "evening"]
 
 
 def run(days, n):
     strt = time.time()
-    url = base_url.format(date=(today + (days + 1) * dt).strftime(fmt), n=n)
+    target_date = today + (days + 1) * dt
+    weekday = target_date.strftime("%w")
+    url = base_url.format(date=target_date.strftime(fmt), n=n)
     r = requests.get(url)
     if r.status_code == requests.codes.ok:
         with gzip.GzipFile(fileobj=StringIO(r.content)) as f:
@@ -43,36 +38,36 @@ def run(days, n):
                       for l in f]
 
         for event in events:
-            repo = event.get("repository", {})
-            repo_name = repo.get("name")
-            evttype = event.get("type")
             actor = event.get("actor")
-            timestamp = event.get("created_at")
-            language = repo.get("language", "Unknown")
+            if actor:
+                actor = actor.lower()
+            else:
+                continue
 
-            # Parse the timestamp.
-            timestamp, utc_offset = timestamp[:-6], timestamp[-6:-3]
-            timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
-            timestamp += timedelta(hours=float(utc_offset))
-            weekday, hour = timestamp.strftime("%w %H").split()
-            hour = int(hour)
+            repo = event.get("repository", {})
+            repo_name = (repo.get("owner"), repo.get("name"))
+            if all(repo_name):
+                repo_name = "/".join(repo_name)
+            else:
+                continue
+
+            evttype = event["type"]
+            language = repo.get("language")
 
             # Add to redis.
-            key = "gh:events:{0}".format(actor)
             r = redis.Redis(connection_pool=redis_pool)
             pipe = r.pipeline(transaction=False)
-
-            # Update the event stats.
-            pipe.hincrby(key, "total", 1)
-            pipe.hincrby(key, "day:{0}".format(weekday), 1)
-            pipe.hincrby(key, "lang:{0}".format(language), 1)
-            pipe.hincrby(key, "type:{0}".format(evttype), 1)
-            pipe.hincrby(key, "hour:{0}".format(hour), 1)
-
-            # Update the repo stats.
-            pipe.zincrby("gh:repos:{0}".format(actor), repo_name, 1)
-
-            # Execute the pipe.
+            pipe.zincrby("gh:users", actor, 1)
+            pipe.zincrby("gh:events:{0}".format(actor), evttype, 1)
+            pipe.zincrby("gh:sums:events", evttype, 1)
+            pipe.zincrby("gh:days:{0}".format(actor), weekday, 1)
+            pipe.zincrby("gh:sums:days", weekday, 1)
+            if repo_name:
+                pipe.zincrby("gh:repos:{0}".format(actor), repo_name, 1)
+                pipe.zincrby("gh:sums:repos", repo_name, 1)
+            if language:
+                pipe.zincrby("gh:langs:{0}".format(actor), language, 1)
+                pipe.zincrby("gh:sums:langs", language, 1)
             pipe.execute()
 
         print("Processed {0} events in {1} seconds"
@@ -80,6 +75,6 @@ def run(days, n):
 
 
 if __name__ == "__main__":
-    for day in range(1):
+    for day in range(14, 31):
         jobs = [gevent.spawn(run, day, n) for n in range(24)]
-    gevent.joinall(jobs)
+        gevent.joinall(jobs)
