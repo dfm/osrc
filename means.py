@@ -28,7 +28,7 @@ def days_means():
     data = np.array([get_days(u) for u in usernames])
     print(data)
     flann = pyflann.FLANN()
-    mu = flann.kmeans(data, 12)
+    mu = flann.kmeans(data, 6)
     return [list(m) for m in mu]
 
 
