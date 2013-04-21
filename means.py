@@ -24,7 +24,7 @@ nvector = nevts + ndays + 2
 
 def days_means():
     r = redis.Redis(connection_pool=redis_pool)
-    usernames = r.zrevrange("gh:users", 0, 500000)
+    usernames = r.zrevrange("gh:users", 0, 100000)
     data = np.array([get_days(u) for u in usernames])
     print(data)
     flann = pyflann.FLANN()
