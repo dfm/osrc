@@ -46,10 +46,9 @@
 
     function day_hist(selection) {
         selection.each(function (data, k) {
-            console.log(data);
             var el = d3.select(this).append("g")
                         .attr("class", "day-hist");
-            el.selectAll("rect").data(data.days)
+            el.selectAll("rect").data(data)
                     .enter().append("rect")
                         .attr("x", function (d, i) { return x(i); })
                         .attr("width", barWidth)
@@ -59,10 +58,10 @@
         });
     }
 
-    d3.json("data/means.json", function (data) {
+    d3.json("data/days_means.json", function (data) {
 
         var max_count = d3.max(data, function (d) {
-            return d3.max(d.days);
+            return d3.max(d);
         });
 
         y.domain([0, max_count]);
