@@ -15,7 +15,6 @@ import gzip
 import json
 import time
 from StringIO import StringIO
-from itertools import product
 from datetime import datetime, timedelta
 import redis
 import requests
@@ -31,16 +30,17 @@ evttypes = [l.strip() for l in open(os.path.join(_path, "evttypes.txt"))]
 
 redis_pool = redis.ConnectionPool()
 
-times = ["night", "night", "morning", "afternoon", "evening", "evening"]
+times = ["night", "morning", "afternoon", "evening"]
 
 
 def run(days, n):
     strt = time.time()
-    url = base_url.format(date=(today + days * dt).strftime(fmt), n=n)
+    url = base_url.format(date=(today + (days + 1) * dt).strftime(fmt), n=n)
     r = requests.get(url)
     if r.status_code == requests.codes.ok:
         with gzip.GzipFile(fileobj=StringIO(r.content)) as f:
-            events = [json.loads(l) for l in f]
+            events = [json.loads(l.decode("utf-8", errors="ignore"))
+                      for l in f]
 
         for event in events:
             repo = event.get("repository", {})
@@ -48,11 +48,7 @@ def run(days, n):
             evttype = event.get("type")
             actor = event.get("actor")
             timestamp = event.get("created_at")
-
-            try:
-                language = languages.index(repo.get("language"))
-            except ValueError:
-                language = -1
+            language = repo.get("language", "Unknown")
 
             # Parse the timestamp.
             timestamp, utc_offset = timestamp[:-6], timestamp[-6:-3]
@@ -70,8 +66,8 @@ def run(days, n):
             pipe.hincrby(key, "total", 1)
             pipe.hincrby(key, "day:{0}".format(weekday), 1)
             pipe.hincrby(key, "lang:{0}".format(language), 1)
-            pipe.hincrby(key, evttype, 1)
-            pipe.hincrby(key, times[(hour - hour % 4) // 4], 1)
+            pipe.hincrby(key, "type:{0}".format(evttype), 1)
+            pipe.hincrby(key, "hour:{0}".format(hour), 1)
 
             # Update the repo stats.
             pipe.zincrby("gh:repos:{0}".format(actor), repo_name, 1)
@@ -84,5 +80,6 @@ def run(days, n):
 
 
 if __name__ == "__main__":
-    jobs = [gevent.spawn(run, *a) for a in product(range(1, 2), range(24))]
+    for day in range(1):
+        jobs = [gevent.spawn(run, day, n) for n in range(24)]
     gevent.joinall(jobs)
