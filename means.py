@@ -22,13 +22,28 @@ ndays = 7
 nvector = nevts + ndays + 2
 
 
-def means():
+def days_means():
     r = redis.Redis(connection_pool=redis_pool)
-    usernames = r.zrevrange("gh:users", 0, 100000)
-    data = np.array([get_vector(u) for u in usernames])
+    usernames = r.zrevrange("gh:users", 0, 500000)
+    data = np.array([get_days(u) for u in usernames])
+    print(data)
     flann = pyflann.FLANN()
-    mu = flann.kmeans(data, 50)
-    return [from_vector(m) for m in mu]
+    mu = flann.kmeans(data, 12)
+    return [list(m) for m in mu]
+
+
+def get_days(username):
+    r = redis.Redis(connection_pool=redis_pool)
+    pipe = r.pipeline(transaction=False)
+    pipe.zscore("gh:users", username)
+    pipe.zrange("gh:days:{0}".format(username), 0, 7, withscores=True)
+    results = pipe.execute()
+
+    total = float(results[0])
+    vector = np.zeros(ndays)
+    for day in results[1]:
+        vector[int(day[0])] = float(day[1])
+    return vector / total
 
 
 def get_vector(username):
@@ -68,4 +83,4 @@ def from_vector(vector):
 
 
 if __name__ == "__main__":
-    json.dump(means(), open("means.json", "w"))
+    json.dump(days_means(), open("www/data/days_means.json", "w"))
