@@ -75,6 +75,6 @@ def run(days, n):
 
 
 if __name__ == "__main__":
-    for day in range(14, 31):
+    for day in range(1):
         jobs = [gevent.spawn(run, day, n) for n in range(24)]
         gevent.joinall(jobs)
