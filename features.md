@@ -9,3 +9,4 @@ What are some potentially interesting features?
 6. Number of contributions to your own repos/other people's repos
 7. Number of words in commit messages/comments
 8. Number of swear words
+9. Number of emojis
