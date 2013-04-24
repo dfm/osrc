@@ -10,7 +10,6 @@ DEBUG = False
 TESTING = False
 SECRET_KEY = os.environ["SECRET_KEY"]
 LOG_FILENAME = os.environ["LOG_FILENAME"]
-print(LOG_FILENAME)
 
 # GitHub API.
 GITHUB_ID = os.environ["GITHUB_ID"]
