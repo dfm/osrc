@@ -4,112 +4,44 @@
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 
-__all__ = []
+__all__ = ["fetch"]
 
 import gevent
 from gevent import monkey
 monkey.patch_all()
 
 import os
-import gzip
-import json
-import time
-from StringIO import StringIO
-from datetime import datetime, timedelta
-import redis
 import requests
+from itertools import product
 
-GITHUB_ID = os.environ["GITHUB_ID"]
-GITHUB_SECRET = os.environ["GITHUB_SECRET"]
-GITHUB_AUTH = {"client_id": GITHUB_ID, "client_secret": GITHUB_SECRET}
+data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+filename = os.path.join(data_dir, "{year}-{month:02d}-{day:02d}-{n}.json.gz")
 
-base_url = "http://data.githubarchive.org/{date}-{n}.json.gz"
-fmt = "%Y-%m-%d"
-today = datetime.utcnow()
-dt = timedelta(-1)
+try:
+    os.makedirs(data_dir)
+except os.error:
+    pass
 
-redis_pool = redis.ConnectionPool()
+url = "http://data.githubarchive.org/{year}-{month:02d}-{day:02d}-{n}.json.gz"
 
 
-def run(days, n):
-    strt = time.time()
-    target_date = today + (days + 1) * dt
-    weekday = target_date.strftime("%w")
-    url = base_url.format(date=target_date.strftime(fmt), n=n)
-    r = requests.get(url)
+def fetch(year, month, day, n):
+    kwargs = {"year": year, "month": month, "day": day, "n": n}
+    remote = url.format(**kwargs)
+    r = requests.get(remote)
     if r.status_code == requests.codes.ok:
-        with gzip.GzipFile(fileobj=StringIO(r.content)) as f:
-            events = [json.loads(l.decode("utf-8", errors="ignore"))
-                      for l in f]
+        local_fn = filename.format(**kwargs)
+        with open(local_fn, "wb") as f:
+            f.write(r.content)
+        print("Saved: {0}".format(local_fn))
 
-        for event in events:
-            # Get the user name of the active user.
-            actor = event.get("actor")
-            if actor:
-                actor = actor.lower()
-            else:
-                continue
-
-            # Parse the name and owner of the affected repository.
-            repo = event.get("repository", {})
-            owner, name = (repo.get("owner"), repo.get("name"))
-            repo_name = None
-            if owner and name:
-                repo_name = "{0}/{1}".format(owner, name)
-
-            # Get the type of event and repository language.
-            evttype = event["type"]
-            language = repo.get("language")
-
-            # How many events are included with this listing?
-            nevents = 1
-            if evttype == "PushEvent":
-                nevents = event["payload"]["size"]
-
-            # Add to redis.
-            r = redis.Redis(connection_pool=redis_pool)
-            pipe = r.pipeline(transaction=False)
-
-            # Global counts.
-            pipe.zincrby("gh:day", weekday, nevents)
-            pipe.zincrby("gh:user", actor, nevents)
-            pipe.zincrby("gh:event", evttype, nevents)
-
-            # User schedule histogram.
-            pipe.zincrby("gh:user:{0}:day".format(actor), weekday, nevents)
-
-            # User event type histogram.
-            pipe.zincrby("gh:user:{0}:event".format(actor), evttype, nevents)
-
-            # User event type day-by-day breakdown.
-            pipe.zincrby("gh:user:{0}:event:{1}:day".format(actor, evttype),
-                         weekday, nevents)
-
-            # If a specific repository was harmed in the making of this event.
-            if repo_name:
-                pipe.zincrby("gh:repo", repo_name, nevents)
-
-                # Is the user contributing to their own project.
-                if owner == actor:
-                    pipe.zincrby("gh:user:{0}:ownrepo".format(actor),
-                                 repo_name, nevents)
-                else:
-                    pipe.zincrby("gh:user:{0}:otherrepo".format(actor),
-                                 repo_name, nevents)
-
-            # Do we know what the language of the repository is?
-            if language:
-                pipe.zincrby("gh:lang", language, nevents)
-                pipe.zincrby("gh:user:{0}:lang".format(actor), language,
-                             nevents)
-
-            pipe.execute()
-
-        print("Processed {0} events in {1} seconds"
-              .format(len(events), time.time() - strt))
+    else:
+        print("Skipped: {0}".format(remote))
 
 
 if __name__ == "__main__":
-    for day in range(31):
-        jobs = [gevent.spawn(run, day, n) for n in range(24)]
+    year = 2013
+    for month, day in product(range(1, 4), range(1, 32)):
+        jobs = [gevent.spawn(fetch, year, month, day, n) for n in range(24)]
         gevent.joinall(jobs)
+        print("Finished {0}-{1}-{2}".format(year, month, day))
