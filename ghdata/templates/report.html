@@ -35,6 +35,12 @@
 
     <h1>{{ name }}'s GitHub Report Card</h1>
 
+    <p>{{ name }} speaks: {% for l in languages[:-1] %}{{ l[0] }}, {% endfor %}
+    and {{ languages[-1][0] }}.</p>
+    <p>They have similar behavior to: {% for n in neighbors[:-1] -%}
+    <a href="/{{ n }}">{{ n }}</a>, {% endfor %}
+    and <a href="/{{ neighbors[-1] }}">{{ neighbors[-1] }}</a>.</p>
+
     <div id="week" class="hist"></div>
     <div id="day" class="hist"></div>
 
@@ -44,8 +50,7 @@
         var data = {
                     day: [{{ hours }}],
                     week: [{{ days }}],
-                    {% if tz %}tz: {{ tz }},{% else -%}
-                    tz: undefined{% endif %}
+                    {% if tz %}tz: {{ tz }},{% else %}tz: undefined{% endif %}
                    }
 
         // Correct for the time zone if there is one.

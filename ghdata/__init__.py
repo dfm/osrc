@@ -7,11 +7,12 @@ from __future__ import (division, print_function, absolute_import,
 __all__ = ["app"]
 
 import re
-import json
 import flask
 import redis
 import logging
 import requests
+
+from ghdata.build_index import get_neighbors
 
 
 app = flask.Flask(__name__)
@@ -40,7 +41,7 @@ def before_request():
 
 @app.route("/")
 def index():
-    return "GH Report Card"
+    return flask.render_template("index.html")
 
 
 @app.route("/<username>")
@@ -101,6 +102,9 @@ def user(username):
                             if len(matches):
                                 tz = int(matches[0])
 
+    # Get neighbors.
+    neighbors = get_neighbors(ghuser)
+
     template_args = {"name": name,
                      "days": ",".join(map(unicode, day_hist)),
                      "hours": ",".join(map(unicode, hour_hist)),
@@ -108,6 +112,7 @@ def user(username):
                      "languages": langs,
                      "location": location,
                      "tz": tz,
+                     "neighbors": neighbors,
                      }
 
     return flask.render_template("report.html", **template_args)
