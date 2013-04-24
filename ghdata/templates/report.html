@@ -5,13 +5,74 @@
 
     <title>{{ name }}'s GitHub Report Card</title>
 
+    <style>
+
+        .hist {
+            display: inline-block;
+            margin: 0 20px 0;
+        }
+
+        rect {
+            fill-opacity: .6;
+            fill: #e377c2;
+        }
+
+        text {
+            font-family: "Helvetica Neue", Helvetica, sans-serif;
+            font-size: 11px;
+            color: #222;
+        }
+
+        line.axis {
+            stroke: #222;
+            stroke-width: 1px;
+        }
+
+    </style>
+
 </head>
 <body>
 
     <h1>{{ name }}'s GitHub Report Card</h1>
 
+    <div id="week" class="hist"></div>
+    <div id="day" class="hist"></div>
+
     <script src="{{ url_for(".static", filename="d3.v3.min.js") }}"></script>
     <script src="{{ url_for(".static", filename="plot.js") }}"></script>
+    <script>
+        var data = {
+                    day: [{{ hours }}],
+                    week: [{{ days }}],
+                    {% if tz %}tz: {{ tz }},{% else -%}
+                    tz: undefined{% endif %}
+                   }
+
+        // Correct for the time zone if there is one.
+        if (typeof data.tz != "undefined") {
+            var day = [];
+            data.day.map(function (d, i) {
+                i += data.tz + 8;
+                while (i < 0) i += 24
+                day[i % 24] = d;
+            });
+            data.day = day;
+        }
+
+        // Wrap the day histogram.
+        var day = [];
+        for (var i = 0; i < 24; ++i)
+            day[i] = data.day[(i + 2) % 24];
+        data.day = day;
+
+        var week_hist = window.histogram().labels(["S","M","T","W","T","F","S"]);
+        d3.select("#week").datum(data.week).call(week_hist);
+
+        var day_hist = window.histogram().width(300)
+            .labels(["", "3am","","","6am","","","9am","","","noon",
+                     "","","3pm","","","6pm","","","9pm","","","12am",""]);
+        d3.select("#day").datum(data.day).call(day_hist);
+    </script>
 
 </body>
 </html>

@@ -102,8 +102,8 @@ def user(username):
                                 tz = int(matches[0])
 
     template_args = {"name": name,
-                     "days": day_hist,
-                     "hours": hour_hist,
+                     "days": ",".join(map(unicode, day_hist)),
+                     "hours": ",".join(map(unicode, hour_hist)),
                      "connections": connections,
                      "languages": langs,
                      "location": location,
