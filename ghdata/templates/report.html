@@ -5,7 +5,26 @@
 
     <title>{{ name }}'s GitHub Report Card</title>
 
+    <link rel="stylesheet" href="{{ url_for(".static", filename="normalize.css") }}" type="text/css" media="screen">
     <style>
+
+        @import url(http://fonts.googleapis.com/css?family=Open+Sans+Condensed:300,300italic,700|Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800);
+
+        body {
+            font-family: "Open Sans", "Helvetica Neue", Helvetica, sans-serif;
+        }
+
+        .container {
+            margin: 0 10%;
+            width: 900px;
+        }
+
+        #header {
+            font-family: "Open Sans Condensed", "Helvetica Neue", Helvetica, sans-serif;
+            font-size: 36px;
+            padding: 40px 0 30px;
+            margin: 0;
+        }
 
         .hist {
             display: inline-block;
@@ -28,21 +47,29 @@
             stroke-width: 1px;
         }
 
+        @media all and (max-width: 1000px) {
+            .container {
+                width: auto;
+            }
+        }
+
     </style>
 
 </head>
 <body>
 
-    <h1>{{ name }}'s GitHub Report Card</h1>
+    <div id="header">
+        <div class="container">
+            The Open Source Report Card: <strong>{{ name }}</strong>
+        </div>
+    </div>
 
-    <p>{{ name }} speaks: {% for l in languages[:-1] %}{{ l[0] }}, {% endfor %}
-    and {{ languages[-1][0] }}.</p>
-    <p>They have similar behavior to: {% for n in neighbors[:-1] -%}
-    <a href="/{{ n }}">{{ n }}</a>, {% endfor %}
-    and <a href="/{{ neighbors[-1] }}">{{ neighbors[-1] }}</a>.</p>
+    <div class="container">
+        <h1>{{ name }}</h1>
 
-    <div id="week" class="hist"></div>
-    <div id="day" class="hist"></div>
+        <div id="week" class="hist"></div>
+        <div id="day" class="hist"></div>
+    </div>
 
     <script src="{{ url_for(".static", filename="d3.v3.min.js") }}"></script>
     <script src="{{ url_for(".static", filename="plot.js") }}"></script>

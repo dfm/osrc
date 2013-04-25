@@ -30,9 +30,12 @@ def week_means():
             points[i, int(k)] = float(v) / total
 
     flann = pyflann.FLANN()
-    mu = flann.kmeans(points, 8)
+    mu = flann.kmeans(points, 12)
     return [list(m) for m in mu]
 
 
 if __name__ == "__main__":
-    json.dump(week_means(), open("ghdata/static/week_means.json", "w"))
+    import os
+    fn = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static",
+                      "week_means.json")
+    json.dump(week_means(), open(fn, "w"))
