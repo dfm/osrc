@@ -1,51 +1,39 @@
-<!DOCTYPE HTML>
-<html>
-<head>
-    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+{% extends "base.html" %}
 
-    <title>GitHub Report Card</title>
+{% block title %}{{ username }}'s Open Source Report Card{% endblock %}
 
-    <style>
+{% block body %}
 
-        .hist {
-            display: inline-block;
-            margin: 0 20px 0;
-        }
+<div class="profile-badge clearfix">
+    <img height="50" width="50" alt="{{ username }}" class="avatar" src="https://secure.gravatar.com/avatar/{{ gravatar }}?s=220&d=https://a248.e.akamai.net/assets.github.com%2Fimages%2Fgravatars%2Fgravatar-user-420.png">
+    <span class="profile-name">{{ name }}</span>
+</div>
+<div class="description">
 
-        rect {
-            fill-opacity: .6;
-            fill: #e377c2;
-        }
+    <p>{{ firstname }} is a <a href="#">weekend warrior</a> with a
+    <a href="#">penchant for wining</a>. They <a href="#">play well
+    with others</a> but can be <a href="#">a bit disagreeable when
+    things don't go their way</a>.</p>
 
-        text {
-            font-family: "Helvetica Neue", Helvetica, sans-serif;
-            font-size: 11px;
-            color: #222;
-        }
+</div>
 
-        line.axis {
-            stroke: #222;
-            stroke-width: 1px;
-        }
+<div id="week"></div>
 
-    </style>
+{% endblock %}
 
-</head>
-<body>
+{% block scripts %}
 
-    <div id="plots"></div>
+<script src="{{ url_for(".static", filename="d3.v3.min.js") }}"></script>
+<script src="{{ url_for(".static", filename="plot.js") }}"></script>
+<script>
 
-    <script src="{{ url_for(".static", filename="d3.v3.min.js") }}"></script>
-    <script src="{{ url_for(".static", filename="plot.js") }}"></script>
-    <script>
-        d3.json("{{ url_for(".static", filename="week_means.json") }}", function (data) {
-            var week_hist = window.histogram().labels(["S","M","T","W","T","F","S"]);
-            for (var i = 0, l = data.length; i < l; ++i) {
-                d3.select("#plots").append("div").attr("class", "hist")
-                    .datum(data[i]).call(week_hist);
-            }
-        });
-    </script>
+d3.json("{{ url_for(".get_stats", username=username) }}", function (data) {
 
-</body>
-</html>
+    var week_hist = window.histogram().labels(["S","M","T","W","T","F","S"]);
+    d3.select("#week").datum(data.week[0][1]).call(week_hist);
+
+});
+
+</script>
+
+{% endblock %}

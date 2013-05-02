@@ -19,12 +19,16 @@ redis_pool = redis.ConnectionPool()
 
 date_re = re.compile(r"([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]+)\.json.gz")
 
+sw_re = re.compile("|".join([r"(?:\b{0}\b)".format(l.strip())
+                             for l in open("ghdata/static/swears.txt")]))
+
 
 def process(filename):
     # Figure out the day of the week from the filename (this is probably not
     # always right but it'll do).
     year, month, day, hour = map(int, date_re.findall(filename)[0])
     weekday = date(year=year, month=month, day=day).strftime("%w")
+    datestr = "{0:4d}-{1:02d}-{1:02d}".format(year, month, day)
 
     # Set up a redis pipeline.
     r = redis.Redis(connection_pool=redis_pool)
@@ -60,27 +64,52 @@ def process(filename):
 
             # Can this be called a "contribution"?
             contribution = evttype in ["IssuesEvent", "PullRequestEvent",
-                                       "PushEvent", "IssueCommentEvent",
-                                       "PullRequestReviewCommentEvent",
-                                       "CommitCommentEvent"]
+                                       "PushEvent"]
 
             # Increment the global sum histograms.
             pipe.incr("gh:total", nevents)
             pipe.hincrby("gh:day", weekday, nevents)
+            pipe.hincrby("gh:date", datestr, nevents)
             pipe.hincrby("gh:hour", hour, nevents)
             pipe.zincrby("gh:user", actor, nevents)
             pipe.zincrby("gh:event", evttype, nevents)
 
+            # Event histograms.
+            pipe.hincrby("gh:event:{0}:day".format(evttype), weekday, nevents)
+            pipe.hincrby("gh:event:{0}:date".format(evttype), datestr, nevents)
+            pipe.hincrby("gh:event:{0}:hour".format(evttype), hour, nevents)
+
             # User schedule histograms.
             pipe.hincrby("gh:user:{0}:day".format(actor), weekday, nevents)
+            pipe.hincrby("gh:user:{0}:date".format(actor), datestr, nevents)
             pipe.hincrby("gh:user:{0}:hour".format(actor), hour, nevents)
 
             # User event type histogram.
             pipe.zincrby("gh:user:{0}:event".format(actor), evttype, nevents)
-            pipe.zincrby("gh:user:{0}:event:{1}:day".format(actor, evttype),
+            pipe.hincrby("gh:user:{0}:event:{1}:day".format(actor, evttype),
                          weekday, nevents)
-            pipe.zincrby("gh:user:{0}:event:{1}:hour".format(actor, evttype),
+            pipe.hincrby("gh:user:{0}:event:{1}:date".format(actor, evttype),
+                         datestr, nevents)
+            pipe.hincrby("gh:user:{0}:event:{1}:hour".format(actor, evttype),
                          hour, nevents)
+
+            # Check for swear words.
+            curses = []
+            if evttype == "PushEvent":
+                for sha in event.get("payload", {}).get("shas", []):
+                    words = sw_re.findall(sha[2])
+                    if len(words):
+                        curses += words
+                        for w in words:
+                            # Popularity of curse words.
+                            pipe.zincrby("gh:curse", w, 1)
+
+                            # User's favorite words.
+                            pipe.zincrby("gh:user:{0}:curse".format(actor),
+                                         w, 1)
+
+                            # Vulgar users?
+                            pipe.zincrby("gh:curse:user", actor, 1)
 
             # Parse the name and owner of the affected repository.
             repo = event.get("repository", {})
@@ -118,6 +147,10 @@ def process(filename):
                     # Which are the most popular languages?
                     pipe.zincrby("gh:lang", language, nevents)
 
+                    # Total number of pushes.
+                    if evttype == "PushEvent":
+                        pipe.zincrby("gh:pushes:lang", language, nevents)
+
                     # What are a user's favorite languages?
                     pipe.zincrby("gh:user:{0}:lang".format(actor), language,
                                  nevents)
@@ -126,6 +159,12 @@ def process(filename):
                     if contribution:
                         pipe.zincrby("gh:lang:{0}:user".format(language),
                                      actor, nevents)
+
+                    # Vulgar languages.
+                    if len(curses):
+                        [pipe.zincrby("gh:lang:{0}:curse".format(language),
+                                      w, 1) for w in curses]
+                        pipe.zincrby("gh:curse:lang", language, len(curses))
 
         pipe.execute()
 
