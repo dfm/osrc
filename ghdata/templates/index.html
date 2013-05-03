@@ -40,9 +40,10 @@
     <script>
         d3.json("{{ url_for(".static", filename="week_means.json") }}", function (data) {
             var week_hist = window.histogram().labels(["S","M","T","W","T","F","S"]);
-            for (var i = 0, l = data.length; i < l; ++i) {
+            for (var k in data) {
+                console.log(k);
                 d3.select("#plots").append("div").attr("class", "hist")
-                    .datum(data[i]).call(week_hist);
+                    .datum(data[k]).call(week_hist);
             }
         });
     </script>

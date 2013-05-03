@@ -36,6 +36,8 @@ app.logger.addHandler(fh)
 
 _basepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 week_means = json.load(open(os.path.join(_basepath, "week_means.json")))
+mean_desc, means = zip(*(week_means.items()))
+means = np.array(means)
 
 evttypes = {
     "PushEvent": "{user} is {more} of a pusher",
@@ -50,6 +52,17 @@ evttypes = {
                          "issues",
     "PublicEvent": "{user} is {more} likely to open source a new project",
     "PullRequestEvent": "{user} submits pull requests {more} frequently",
+}
+
+evtactions = {
+    "CreateEvent": "creating new repositories and branches",
+    "CommitCommentEvent": "commenting on your commits",
+    "FollowEvent": "following other users",
+    "ForkEvent": "forking people's code",
+    "IssuesEvent": "creating issues",
+    "IssueCommentEvent": "commenting on issues",
+    "PublicEvent": "open sourcing new projects",
+    "PullRequestEvent": "submitting pull requests",
 }
 
 languages = {
@@ -151,6 +164,7 @@ def make_hist(data, size, offset=None):
 @app.route("/<username>/stats")
 def get_stats(username):
     ghuser = username.lower()
+    firstname = flask.request.args.get("firstname", username)
 
     events = flask.g.redis.zrevrangebyscore("gh:user:{0}:event"
                                             .format(ghuser), "+inf", 4)
@@ -180,7 +194,7 @@ def get_stats(username):
 
     # Get the vulgarity (and vulgar rank) of the user.
     pipe.zrevrange("gh:user:{0}:curse".format(ghuser), 0, -1, withscores=True)
-    pipe.zcount("gh:curse:user", 2, "+inf")
+    pipe.zcount("gh:curse:user", 4, "+inf")
     pipe.zrevrank("gh:curse:user", ghuser)
 
     # Get connected users.
@@ -243,12 +257,83 @@ def get_stats(username):
     neighbors = get_neighbors(ghuser)
 
     # Figure out the representative weekly schedule.
+    hacker_type = "a pretty inconsistent hacker"
+    if len(week):
+        mu = np.sum(week, axis=1)
+        mu /= np.sum(mu)
+        hacker_type = mean_desc[np.argmin(np.sum(np.abs(means - mu[None, :]),
+                                                 axis=1))]
+
+    # Build a human readable summary.
+    summary = ""
+    if langname:
+        adj = np.random.choice(["a high caliber", "a heavy hitting",
+                                "a serious", "a bad ass", "an awesome",
+                                "a top notch", "a trend setting"])
+        if langname in ["brogrammer", "Rubyist"] and np.random.rand() > 0.5:
+            adj = "a rockstar"
+
+        summary += ("{0} is {2} <a href=\"#languages\">{1}</a>"
+                    .format(firstname, langname, adj))
+        if langrank and langrank[1] < 50:
+            summary += (" (one of the top {0}% most active {1} users)"
+                        .format(langrank[1], langrank[0]))
+
+        if len(events):
+            if events[0] in evtactions:
+                summary += (" who <a href=\"#events\">would rather be {0} "
+                            "versus of pushing code</a>").format(
+                                evtactions[events[0]])
+            elif events[0] == "PushEvent":
+                summary += " who <a href=\"#events\">loves pushing code</a>"
+
+        summary += ". "
+
+    summary += "{0} is <a href=\"#week\">{1}</a>".format(firstname,
+                                                         hacker_type)
+    if len(day):
+        best_hour = np.argmax(np.sum(day, axis=1))
+        if 0 <= best_hour < 7:
+            tod = "wee hours"
+        elif 7 <= best_hour < 12:
+            tod = "morning"
+        elif 12 <= best_hour < 18:
+            tod = "mid-afternoon"
+        elif 18 <= best_hour < 21:
+            tod = "evening"
+        else:
+            tod = "late evening"
+        summary += " who seems to <a href=\"#day\">work best in the {0}</a>" \
+                   .format(tod)
+    else:
+        summary += (" who's performance is weak enough that we really just "
+                    "don't have much to say")
+    summary += ". "
+
+    if vulgarity:
+        if vulgarity < 50:
+            summary += ("I hate to say it but {0} does seem&mdash;as one of "
+                        "the top {1}% most vulgar users on GitHub&mdash;to "
+                        "be <a href=\"#swearing\">a tad foul-mouthed</a> "
+                        "(with a particular affinity "
+                        "for filthy words like '{2}').").format(firstname,
+                                                                vulgarity,
+                                                                curses[0][0])
+        else:
+            summary += ("I hate to say it but {0} is becoming&mdash;as one of "
+                        "the top {1}% most vulgar users on GitHub&mdash;"
+                        "<a href=\"#swearing\">a tad foul-mouthed</a> "
+                        "(with a particular affinity "
+                        "for filthy words like '{2}').").format(firstname,
+                                                                vulgarity,
+                                                                curses[0][0])
 
     # Format the results.
-    results = {"events": events}
+    results = {"events": events, "summary": summary}
     results["tz"] = tz
     results["total"] = total
     results["week"] = week
+    results["hacker_type"] = hacker_type
     results["day"] = day
     results["activity"] = raw[2].items()
     results["languages"] = langs
