@@ -28,7 +28,7 @@ def process(filename):
     # always right but it'll do).
     year, month, day, hour = map(int, date_re.findall(filename)[0])
     weekday = date(year=year, month=month, day=day).strftime("%w")
-    datestr = "{0:4d}-{1:02d}-{1:02d}".format(year, month, day)
+    datestr = "{0:4d}-{1:02d}-{2:02d}".format(year, month, day)
 
     # Set up a redis pipeline.
     r = redis.Redis(connection_pool=redis_pool)

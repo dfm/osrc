@@ -122,7 +122,9 @@ def get_neighbors(name):
     else:
         inds = inds[:-1]
 
-    return usernames[inds]
+    usernames = usernames[inds]
+
+    return list(usernames)
 
 if __name__ == "__main__":
     build_index()

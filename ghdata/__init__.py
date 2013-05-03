@@ -6,12 +6,14 @@ from __future__ import (division, print_function, absolute_import,
 
 __all__ = ["app"]
 
+import os
 import re
 import json
 import flask
 import redis
 import logging
 import requests
+import numpy as np
 
 from ghdata.build_index import get_neighbors
 
@@ -31,6 +33,45 @@ fh.setFormatter(logging.Formatter(
     "[in %(pathname)s:%(lineno)d]"
 ))
 app.logger.addHandler(fh)
+
+_basepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+week_means = json.load(open(os.path.join(_basepath, "week_means.json")))
+
+evttypes = {
+    "PushEvent": "{user} is {more} of a pusher",
+    "CreateEvent": "{user} spends {more} of their time creating new "
+                   "repositories and branches",
+    "CommitCommentEvent": "{user} is far {more} likely to comment on your "
+                          "commits",
+    "FollowEvent": "{user} is {more} of a follower",
+    "ForkEvent": "{user} is a {more} serious forker",
+    "IssuesEvent": "{user} is {more} of a whiner",
+    "IssueCommentEvent": "{user} spends {more} of their time commenting on "
+                         "issues",
+    "PublicEvent": "{user} is {more} likely to open source a new project",
+    "PullRequestEvent": "{user} submits pull requests {more} frequently",
+}
+
+languages = {
+    "Python": "{user} is {more} of a Pythonista",
+    "Ruby": "{user} is {more} of a Rubyist",
+    "Go": "{user} is {more} of a Gopher",
+    "Java": "{user} is {more} a Javavore",
+    "C": "{user} is {more} a sysadmin",
+    "FORTRAN": "{user} is way {more} old school",
+    "JavaScript": "{user} is probably {more} of a brogrammer",
+    "C++": "{user} spends {more} time working for the man",
+    "R": "{user} is {more} of a useR",
+}
+
+language_users = {
+    "Python": "Pythonista",
+    "Ruby": "Rubyist",
+    "Go": "Gopher",
+    "JavaScript": "brogrammer",
+    "FORTRAN": "old-school hacker",
+    "R": "useR",
+}
 
 
 @app.before_request
@@ -87,7 +128,7 @@ def user(username):
             flask.g.redis.set("gh:user:{0}:tz".format(ghuser),
                               get_tz(location))
 
-    return flask.render_template("index.html",
+    return flask.render_template("report.html",
                                  gravatar=user.get("gravatar_id", "none"),
                                  name=name,
                                  firstname=name.split()[0],
@@ -111,8 +152,8 @@ def make_hist(data, size, offset=None):
 def get_stats(username):
     ghuser = username.lower()
 
-    evttypes = flask.g.redis.zrevrangebyscore("gh:user:{0}:event"
-                                              .format(ghuser), "+inf", 4)
+    events = flask.g.redis.zrevrangebyscore("gh:user:{0}:event"
+                                            .format(ghuser), "+inf", 4)
 
     # Get the user histogram.
     pipe = flask.g.redis.pipeline()
@@ -123,21 +164,28 @@ def get_stats(username):
     # Get the total number of events.
     pipe.zscore("gh:user", ghuser)
 
+    # Get full commit schedule.
+    pipe.hgetall("gh:user:{0}:date".format(ghuser))
+
     # Get the daily schedule for each type of event.
     [pipe.hgetall("gh:user:{0}:event:{1}:day".format(ghuser, e))
-     for e in evttypes]
+     for e in events]
 
     # Get the hourly schedule for each type of event.
     [pipe.hgetall("gh:user:{0}:event:{1}:hour".format(ghuser, e))
-     for e in evttypes]
+     for e in events]
 
     # Get the distribution of languages contributed to.
     pipe.zrevrange("gh:user:{0}:lang".format(ghuser), 0, -1, withscores=True)
 
     # Get the vulgarity (and vulgar rank) of the user.
     pipe.zrevrange("gh:user:{0}:curse".format(ghuser), 0, -1, withscores=True)
-    pipe.zcard("gh:curse:user")
+    pipe.zcount("gh:curse:user", 2, "+inf")
     pipe.zrevrank("gh:curse:user", ghuser)
+
+    # Get connected users.
+    pipe.zrevrangebyscore("gh:user:{0}:connection".format(ghuser), "+inf", 5,
+                          0, 5)
 
     # Fetch the data from the database.
     raw = pipe.execute()
@@ -146,13 +194,17 @@ def get_stats(username):
     tz = int(raw[0]) if raw[0] is not None else None
     total = int(raw[1]) if raw[1] is not None else 0
 
+    if total == 0:
+        return json.dumps({"message":
+                           "Couldn't find any stats for this user."}), 404
+
     # Get the schedule histograms.
-    n, m = 2, len(evttypes)
+    n, m = 3, len(events)
     week = zip(*[make_hist(d.iteritems(), 7)
-                 for k, d in zip(evttypes, raw[n:n + m])])
+                 for k, d in zip(events, raw[n:n + m])])
     offset = tz + 8 if tz is not None else 0
     day = zip(*[make_hist(d.iteritems(), 24, offset=offset)
-                for k, d in zip(evttypes, raw[n + m:n + 2 * m])])
+                for k, d in zip(events, raw[n + m:n + 2 * m])])
 
     # Get the language proportions.
     n = n + 2 * m
@@ -166,34 +218,166 @@ def get_stats(username):
     except:
         pass
 
+    # Get the connected users.
+    connections = raw[n + 4]
+
     # Get language rank.
     langrank = None
+    langname = None
     if len(langs):
         lang = langs[0][0]
+        langname = language_users.get(lang, "{0} expert".format(lang))
 
-        # Made up number. How many contributions count as enough? 50? Sure.
+        # Made up number. How many contributions count as enough? 20? Sure.
         pipe.zcount("gh:lang:{0}:user".format(lang), 50, "+inf")
         pipe.zrevrank("gh:lang:{0}:user".format(lang), ghuser)
         ltot, lrank = pipe.execute()
 
         # This user is in the top N percent of users of language "lang".
         try:
-            langrank = (lang, int(100 * float(lrank) / float(ltot))) + 1
+            langrank = (lang, int(100 * float(lrank) / float(ltot)) + 1)
         except:
             pass
 
     # Get neighbors.
-    # neighbors = get_neighbors(ghuser)
+    neighbors = get_neighbors(ghuser)
+
+    # Figure out the representative weekly schedule.
 
     # Format the results.
-    results = {"events": evttypes}
+    results = {"events": events}
     results["tz"] = tz
     results["total"] = total
     results["week"] = week
     results["day"] = day
+    results["activity"] = raw[2].items()
     results["languages"] = langs
+    results["lang_user"] = langname
     results["language_rank"] = langrank
     results["curses"] = curses
     results["vulgarity"] = vulgarity
+    results["similar_users"] = neighbors
+    results["connected_users"] = connections
 
     return json.dumps(results)
+
+
+@app.route("/<username>/compare/<other>")
+def compare(username, other):
+    """
+    Return a human-readable distinction between 2 GitHub users.
+
+    """
+    user1, user2 = username.lower(), other.lower()
+
+    pipe = flask.g.redis.pipeline()
+
+    pipe.zscore("gh:user", user1)
+    pipe.zscore("gh:user", user2)
+
+    pipe.zrevrange("gh:user:{0}:event".format(user1), 0, -1, withscores=True)
+    pipe.zrevrange("gh:user:{0}:event".format(user2), 0, -1, withscores=True)
+
+    pipe.zrevrange("gh:user:{0}:lang".format(user1), 0, -1, withscores=True)
+    pipe.zrevrange("gh:user:{0}:lang".format(user2), 0, -1, withscores=True)
+
+    pipe.zscore("gh:curse:user", user1)
+    pipe.zscore("gh:curse:user", user2)
+
+    pipe.hgetall("gh:user:{0}:day".format(user1))
+    pipe.hgetall("gh:user:{0}:day".format(user2))
+
+    raw = pipe.execute()
+
+    total1 = float(raw[0]) if raw[0] is not None else 0
+    total2 = float(raw[1]) if raw[1] is not None else 0
+
+    if not total1:
+        return json.dumps({"message":
+                           "No stats for user '{0}'".format(username)}), 404
+
+    if not total2:
+        return json.dumps({"message":
+                           "No stats for user '{0}'".format(other)}), 404
+
+    # Compare the fractional event types.
+    evts1 = dict(raw[2])
+    evts2 = dict(raw[3])
+    diffs = []
+    for e, desc in evttypes.iteritems():
+        if e in evts1 and e in evts2:
+            d = float(evts2[e]) / total2 / float(evts1[e]) * total1
+            if d != 1:
+                more = "more" if d > 1 else "less"
+                if d > 1:
+                    d = 1.0 / d
+                diffs.append((desc.format(more=more, user=user2), d * d))
+
+    # Compare language usage.
+    langs1 = dict(raw[4])
+    langs2 = dict(raw[5])
+    for l in set(langs1.keys()) | set(langs2.keys()):
+        n = float(langs1.get(l, 0)) / total1
+        d = float(langs2.get(l, 0)) / total2
+        if n != d and d > 0:
+            if n > 0:
+                d = d / n
+            else:
+                d = 1.0 / d
+            more = "more" if d > 1 else "less"
+            if l in languages:
+                desc = languages[l]
+            else:
+                desc = "{{user}} is {{more}} of a {0} aficionado".format(l)
+            if d > 1:
+                d = 1.0 / d
+            diffs.append((desc.format(more=more, user=user2), d * d))
+
+    # Number of languages.
+    nl1, nl2 = len(raw[4]), len(raw[5])
+    if nl1 and nl2:
+        desc = "{user} speaks {more} languages"
+        if nl1 > nl2:
+            diffs.append((desc.format(user=user2, more="fewer"),
+                          nl2 * nl2 / nl1 / nl1))
+        else:
+            diffs.append((desc.format(user=user2, more="more"),
+                          nl1 * nl1 / nl2 / nl2))
+
+    # Compare the vulgarity.
+    nc1 = float(raw[6]) if raw[6] else 0
+    nc2 = float(raw[7]) if raw[7] else 0
+    if nc1 or nc2 and nc1 != nc2:
+        if nc1 > nc2:
+            diffs.append(("{0} is less foul mouthed".format(user2),
+                          (nc2 * nc2 + 1) / (nc1 * nc1 + 1)))
+        else:
+            diffs.append(("{0} is more foul mouthed".format(user2),
+                          (nc1 * nc1 + 1) / (nc2 * nc2 + 1)))
+
+    # Compare the average weekly schedules.
+    week1 = map(lambda v: int(v[1]), raw[8].iteritems())
+    week2 = map(lambda v: int(v[1]), raw[9].iteritems())
+    mu1, mu2 = sum(week1) / 7.0, sum(week2) / 7.0
+    var1 = np.sqrt(sum(map(lambda v: (v - mu1) ** 2, week1)) / 7.0) / mu1
+    var2 = np.sqrt(sum(map(lambda v: (v - mu2) ** 2, week2)) / 7.0) / mu2
+    if var1 or var2 and var1 != var2:
+        if var1 > var2:
+            diffs.append(("{0} has a more consistent weekly schedule"
+                          .format(user2), var2 / var1))
+        else:
+            diffs.append(("{0} has a less consistent weekly schedule"
+                          .format(user2), var1 / var2))
+
+    # Compute the relative probabilities of the comparisons and normalize.
+    ps = map(lambda v: v[1], diffs)
+    norm = sum(ps)
+
+    # Return the full list?
+    if flask.request.args.get("full") is not None:
+        diffs = zip([d[0] for d in diffs], [p / norm for p in ps])
+        diffs = sorted(diffs, key=lambda v: v[1], reverse=True)
+        return json.dumps(diffs)
+
+    # Choose a random description weighted by the probabilities.
+    return np.random.choice([d[0] for d in diffs], p=[p / norm for p in ps])

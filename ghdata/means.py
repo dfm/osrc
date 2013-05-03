@@ -37,5 +37,5 @@ def week_means():
 if __name__ == "__main__":
     import os
     fn = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static",
-                      "week_means.json")
+                      "week_means_tmp.json")
     json.dump(week_means(), open(fn, "w"))

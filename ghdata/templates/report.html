@@ -1,110 +1,39 @@
-<!DOCTYPE HTML>
-<html>
-<head>
-    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+{% extends "base.html" %}
 
-    <title>{{ name }}'s GitHub Report Card</title>
+{% block title %}{{ username }}'s Open Source Report Card{% endblock %}
 
-    <link rel="stylesheet" href="{{ url_for(".static", filename="normalize.css") }}" type="text/css" media="screen">
-    <style>
+{% block body %}
 
-        @import url(http://fonts.googleapis.com/css?family=Open+Sans+Condensed:300,300italic,700|Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800);
+<div class="profile-badge clearfix">
+    <img height="50" width="50" alt="{{ username }}" class="avatar" src="https://secure.gravatar.com/avatar/{{ gravatar }}?s=220&d=https://a248.e.akamai.net/assets.github.com%2Fimages%2Fgravatars%2Fgravatar-user-420.png">
+    <span class="profile-name">{{ name }}</span>
+</div>
+<div class="description">
 
-        body {
-            font-family: "Open Sans", "Helvetica Neue", Helvetica, sans-serif;
-        }
+    <p>{{ firstname }} is a <a href="#">weekend warrior</a> with a
+    <a href="#">penchant for wining</a>. They <a href="#">play well
+    with others</a> but can be <a href="#">a bit disagreeable when
+    things don't go their way</a>.</p>
 
-        .container {
-            margin: 0 10%;
-            width: 900px;
-        }
+</div>
 
-        #header {
-            font-family: "Open Sans Condensed", "Helvetica Neue", Helvetica, sans-serif;
-            font-size: 36px;
-            padding: 40px 0 30px;
-            margin: 0;
-        }
+<div id="week"></div>
 
-        .hist {
-            display: inline-block;
-            margin: 0 20px 0;
-        }
+{% endblock %}
 
-        rect {
-            fill-opacity: .6;
-            fill: #e377c2;
-        }
+{% block scripts %}
 
-        text {
-            font-family: "Helvetica Neue", Helvetica, sans-serif;
-            font-size: 11px;
-            color: #222;
-        }
+<script src="{{ url_for(".static", filename="d3.v3.min.js") }}"></script>
+<script src="{{ url_for(".static", filename="plot.js") }}"></script>
+<script>
 
-        line.axis {
-            stroke: #222;
-            stroke-width: 1px;
-        }
+d3.json("{{ url_for(".get_stats", username=username) }}", function (data) {
 
-        @media all and (max-width: 1000px) {
-            .container {
-                width: auto;
-            }
-        }
+    var week_hist = window.histogram().labels(["S","M","T","W","T","F","S"]);
+    d3.select("#week").datum(data.week[0][1]).call(week_hist);
 
-    </style>
+});
 
-</head>
-<body>
+</script>
 
-    <div id="header">
-        <div class="container">
-            The Open Source Report Card: <strong>{{ name }}</strong>
-        </div>
-    </div>
-
-    <div class="container">
-        <h1>{{ name }}</h1>
-
-        <div id="week" class="hist"></div>
-        <div id="day" class="hist"></div>
-    </div>
-
-    <script src="{{ url_for(".static", filename="d3.v3.min.js") }}"></script>
-    <script src="{{ url_for(".static", filename="plot.js") }}"></script>
-    <script>
-        var data = {
-                    day: [{{ hours }}],
-                    week: [{{ days }}],
-                    {% if tz %}tz: {{ tz }},{% else %}tz: undefined{% endif %}
-                   }
-
-        // Correct for the time zone if there is one.
-        if (typeof data.tz != "undefined") {
-            var day = [];
-            data.day.map(function (d, i) {
-                i += data.tz + 8;
-                while (i < 0) i += 24
-                day[i % 24] = d;
-            });
-            data.day = day;
-        }
-
-        // Wrap the day histogram.
-        var day = [];
-        for (var i = 0; i < 24; ++i)
-            day[i] = data.day[(i + 2) % 24];
-        data.day = day;
-
-        var week_hist = window.histogram().labels(["S","M","T","W","T","F","S"]);
-        d3.select("#week").datum(data.week).call(week_hist);
-
-        var day_hist = window.histogram().width(300)
-            .labels(["", "3am","","","6am","","","9am","","","noon",
-                     "","","3pm","","","6pm","","","9pm","","","12am",""]);
-        d3.select("#day").datum(data.day).call(day_hist);
-    </script>
-
-</body>
-</html>
+{% endblock %}
