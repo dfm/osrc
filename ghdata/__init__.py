@@ -205,7 +205,7 @@ def get_stats(username):
     raw = pipe.execute()
 
     # Get the general stats.
-    tz = int(raw[0]) if raw[0] is not None else None
+    tz = int(raw[0]) if raw[0] is not None and raw[0] != "None" else None
     total = int(raw[1]) if raw[1] is not None else 0
 
     if total == 0:
@@ -265,7 +265,7 @@ def get_stats(username):
                                                  axis=1))]
 
     # Build a human readable summary.
-    summary = ""
+    summary = "<p>"
     if langname:
         adj = np.random.choice(["a high caliber", "a heavy hitting",
                                 "a serious", "a bad ass", "an awesome",
@@ -319,7 +319,7 @@ def get_stats(username):
                         "for filthy words like '{2}').").format(firstname,
                                                                 vulgarity,
                                                                 curses[0][0])
-        else:
+        elif vulgarity < 100:
             summary += ("I hate to say it but {0} is becoming&mdash;as one of "
                         "the top {1}% most vulgar users on GitHub&mdash;"
                         "<a href=\"#swearing\">a tad foul-mouthed</a> "
@@ -328,8 +328,83 @@ def get_stats(username):
                                                                 vulgarity,
                                                                 curses[0][0])
 
+    summary += "</p>"
+
+    # Add similar and connected users to summary.
+    if len(week) and (len(neighbors) or len(connections)):
+        summary += "<p>"
+
+        if len(neighbors):
+            ind = np.random.randint(len(neighbors))
+            summary += ("{0}'s behavior is quite similar to <a "
+                        "href=\"{2}\">{1}</a>'s but <span "
+                        "class=\"comparison\" data-url=\"{3}\"></span>. ") \
+                .format(firstname, neighbors[ind],
+                        flask.url_for(".user", username=neighbors[ind]),
+                        flask.url_for(".compare", username=ghuser,
+                                      other=neighbors[ind]))
+
+            if len(neighbors) == 2:
+                ind = (ind + 1) % 2
+                summary += ("<a href=\"{1}\">{0}</a>'s activity stream also "
+                            "shows remarkable similarities to {2}'s "
+                            "behavior. ").format(neighbors[ind],
+                                                 flask.url_for(".user",
+                                                               username=
+                                                               neighbors[ind]),
+                                                 firstname)
+
+            elif len(neighbors) > 2:
+                summary += ("It would also be impossible to look at {0}'s "
+                            "activity stream and not compare it to those "
+                            "of ").format(firstname)
+
+                cus = []
+                for i in range(len(neighbors)):
+                    if i != ind:
+                        cus.append("<a href=\"{1}\">{0}</a>"
+                                   .format(neighbors[i],
+                                           flask.url_for(".user",
+                                                         username=
+                                                         neighbors[i])))
+
+                summary += ", ".join(cus[:-1])
+                summary += " and " + cus[-1] + ". "
+
+        if len(connections):
+            ind = 0
+            summary += ("It seems&mdash;from their activity streams&mdash;"
+                        "that {0} and <a href=\"{2}\">{1}</a> are probably "
+                        "friends or at least virtual friends. With this in "
+                        "mind, it's worth noting that <span "
+                        "class=\"comparison\" data-url=\"{3}\"></span>. ") \
+                .format(firstname, connections[ind],
+                        flask.url_for(".user", username=connections[ind]),
+                        flask.url_for(".compare", username=ghuser,
+                                      other=connections[ind]))
+
+            if len(connections) > 2:
+                summary += ("There is also an obvious connection between "
+                            "{0} and ").format(firstname)
+
+                cus = []
+                for i in range(len(connections)):
+                    if i != ind:
+                        cus.append("<a href=\"{1}\">{0}</a>"
+                                   .format(connections[i],
+                                           flask.url_for(".user",
+                                                         username=
+                                                         connections[i])))
+
+                summary += ", ".join(cus[:-1])
+                summary += " and " + cus[-1] + ". "
+
+        summary += "</p>"
+
     # Format the results.
-    results = {"events": events, "summary": summary}
+    results = {"summary": summary}
+    results["events"] = [" ".join(re.findall("([A-Z][a-z]+)", e))
+                         for e in events]
     results["tz"] = tz
     results["total"] = total
     results["week"] = week

@@ -10,9 +10,21 @@
 
     var hist = function (selection) {
       selection.each(function (data) {
+        // Compute the stacking offsets.
+        data = data.map(function (d0) {
+          var y0 = 0;
+          return d0.map(function (d, i) {
+            var o = {y: d, y0: y0}
+            y0 += d;
+            return o;
+          });
+        });
+
         var bar_width = (width - 30) / data.length;
 
-        var ylim = [0, d3.max(data)];
+        var ylim = [0, d3.max(data, function (d) {
+          return d3.sum(d, function (d0) { return d0.y; });
+        })];
 
         var x = d3.scale.linear()
                   .range([0.5*bar_width, width-0.5*bar_width])
@@ -39,18 +51,33 @@
         var bars = sel.selectAll("g").data(data),
             gs = bars.enter().append("g");
 
-        gs.append("rect");
         gs.append("text");
+        data[0].map(function (d, i, b) {
+          gs.append("rect")
+              .attr("data-ind", i)
+        });
 
         bars.attr("transform", function (d, i) {
           return "translate("+x(i)+",0)";
-        })
+        });
 
-        bars.select("rect")
+        var cb = d3.scale.category10();
+        bars.selectAll("rect")
+            .style("fill", function (d) {
+              var ind = d3.select(this).attr("data-ind");
+              return cb(ind);
+            })
             .attr("x", 0)
             .attr("width", bar_width)
-            .attr("y", function (d) { return y(d); })
-            .attr("height", function (d) { return height - y(d); });
+            .attr("y", function (d) {
+              var ind = d3.select(this).attr("data-ind");
+              return y(d[ind].y0 + d[ind].y);
+            })
+            .attr("height", function (d) {
+              var ind = d3.select(this).attr("data-ind");
+              return height - y(d[ind].y);
+            });
+
         if (labels.length == data.length) {
           bars.select("text")
             .text(function (d, i) { return labels[i]; })
