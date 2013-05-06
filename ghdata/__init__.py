@@ -455,8 +455,8 @@ def get_stats(username):
 </div>
 <p>"""
 
-        sctxt += ("Based on this average weekly schedule, it seems "
-                  "reasonable to describe {0} as "
+        sctxt += ("Based on this average weekly schedule, we can "
+                  "describe {0} as "
                   "<strong>{1}</strong>. ").format(firstname, hacker_type)
 
         if len(day):
