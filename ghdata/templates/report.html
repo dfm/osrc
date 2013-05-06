@@ -19,10 +19,7 @@
 
 <h1>Statistics</h1>
 
-<div class="hist-block">
-    <div id="week" class="hist"></div>
-    <div id="day" class="hist"></div>
-</div>
+<div id="schedule-text"></div>
 
 {% endblock %}
 
@@ -51,7 +48,12 @@ d3.json("{{ url_for(".get_stats", username=username) }}?firstname={{ firstname }
     // Display description.
     var template = _.template($("#description-template").html());
     $("#description").html(template(data));
+    fill_comps();
 
+    // Schedule description text.
+    $("#schedule-text").html(data.schedule_text);
+
+    // Schedule histograms.
     var week_hist = window.histogram().width(200)
                                       .labels(["S","M","T","W","T","F","S"]);
     d3.select("#week").datum(data.week).call(week_hist);
@@ -59,22 +61,27 @@ d3.json("{{ url_for(".get_stats", username=username) }}?firstname={{ firstname }
     // Wrap the day histogram.
     var day = [];
     for (var i = 0; i < 24; ++i)
-        day[i] = data.day[(i + 1) % 24];
+        day[i] = data.day[(i + 2) % 24];
 
     var day_hist = window.histogram().width(400)
                 .labels(["", "3am","","","6am","","","9am","","","noon",
                          "","","3pm","","","6pm","","","9pm","","","12am",""]);
     d3.select("#day").datum(day).call(day_hist);
 
+    var evt_pie = window.piechart().dim(200);
+    d3.select("#events").datum(data.event_counts).call(evt_pie);
+
+    var lang_pie = window.piechart().dim(200);
+    d3.select("#languages").datum(data.languages.map(function (d) {
+        return d[1];
+    })).call(lang_pie);
+
     // Legend.
     var cb = d3.scale.category10();
-    var sel = d3.select("#hist-legend").selectAll("span").data(data.events);
-    sel.enter().append("span");
-    sel.text(function (d) { return d; })
-       .style("color", function (d, i) { return cb(i); });
-    sel.exit().remove();
-
-    fill_comps();
+    $(".evttype").each(function () {
+        var el = $(this);
+        el.css("color", cb(+el.data("ind")));
+    });
 
 });
 

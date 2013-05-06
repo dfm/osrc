@@ -65,6 +65,27 @@ evtactions = {
     "PullRequestEvent": "submitting pull requests",
 }
 
+evtverbs = {
+    "CommitCommentEvent": "commit comments",
+    "CreateEvent": "new repos or branches",
+    "DeleteEvent": "deletion of branches",
+    "DownloadEvent": "creation of downloads",
+    "FollowEvent": "following",
+    "ForkEvent": "forking",
+    "ForkApplyEvent": "fork merges",
+    "GistEvent": "gist creation",
+    "GollumEvent": "wiki edits",
+    "IssueCommentEvent": "issue comments",
+    "IssuesEvent": "new issues",
+    "MemberEvent": "new collaborations",
+    "PublicEvent": "open-sourcing",
+    "PullRequestEvent": "pull requests",
+    "PullRequestReviewCommentEvent": "pull request comments",
+    "PushEvent": "pushes",
+    "TeamAddEvent": "teams",
+    "WatchEvent": "watching"
+}
+
 languages = {
     "Python": "{user} is {more} of a Pythonista",
     "Ruby": "{user} is {more} of a Rubyist",
@@ -166,8 +187,11 @@ def get_stats(username):
     ghuser = username.lower()
     firstname = flask.request.args.get("firstname", username)
 
-    events = flask.g.redis.zrevrangebyscore("gh:user:{0}:event"
-                                            .format(ghuser), "+inf", 4)
+    eventscores = flask.g.redis.zrevrangebyscore("gh:user:{0}:event"
+                                                 .format(ghuser), "+inf", 5,
+                                                 0, 10, withscores=True)
+    events = [e[0] for e in eventscores]
+    evtcounts = [int(e[1]) for e in eventscores]
 
     # Get the user histogram.
     pipe = flask.g.redis.pipeline()
@@ -268,7 +292,7 @@ def get_stats(username):
     summary = "<p>"
     if langname:
         adj = np.random.choice(["a high caliber", "a heavy hitting",
-                                "a serious", "a bad ass", "an awesome",
+                                "a serious", "an awesome",
                                 "a top notch", "a trend setting"])
         if langname in ["brogrammer", "Rubyist"] and np.random.rand() > 0.5:
             adj = "a rockstar"
@@ -282,7 +306,7 @@ def get_stats(username):
         if len(events):
             if events[0] in evtactions:
                 summary += (" who <a href=\"#events\">would rather be {0} "
-                            "versus of pushing code</a>").format(
+                            "instead of pushing code</a>").format(
                                 evtactions[events[0]])
             elif events[0] == "PushEvent":
                 summary += " who <a href=\"#events\">loves pushing code</a>"
@@ -401,16 +425,119 @@ def get_stats(username):
 
         summary += "</p>"
 
+    # Summary text for schedule graphs.
+    sctxt = ""
+    if len(events):
+        sctxt = ("<p>The two following graphs show {0}'s average weekly and "
+                 "daily schedules. These charts give significant insight "
+                 "into {0}'s character as a developer. ").format(firstname)
+
+        if len(events) == 1:
+            sctxt += "All of the events in {0}'s activity stream are {1}. " \
+                .format(firstname, evtverbs.get(events[0]))
+
+        else:
+            sctxt += ("The colors in the charts indicate the fraction of "
+                      "events that are ")
+            for i, e in enumerate(events):
+                if i == len(events) - 1:
+                    sctxt += "and "
+                sctxt += ("<span class=\"evttype\" data-ind=\"{1}\">{0}"
+                          "</span>").format(evtverbs.get(e), i)
+                if i < len(events) - 1:
+                    sctxt += ", "
+            sctxt += ". "
+
+        sctxt += """</p>
+<div class="hist-block">
+    <div id="week" class="hist"></div>
+    <div id="day" class="hist"></div>
+</div>
+<p>"""
+
+        sctxt += ("Based on this average weekly schedule, it seems "
+                  "reasonable to describe {0} as "
+                  "<strong>{1}</strong>. ").format(firstname, hacker_type)
+
+        if len(day):
+            if best_hour == 0:
+                tm = "midnight"
+            elif best_hour == 12:
+                tm = "noon"
+            else:
+                tm = "{0}{1}".format(best_hour % 12,
+                                     "am" if best_hour < 12 else "pm")
+            sctxt += ("Since {0}'s most active time is around {1}, I would "
+                      "conclude that {0} works best in the "
+                      "<strong>{2}</strong>. ").format(firstname, tm, tod)
+            sctxt += ("It is important to note that an attempt has been made "
+                      "to show the daily schedule in the correct time zone "
+                      "but this procedure is imperfect at best. ")
+        sctxt += "</p>"
+
+        if len(events) > 1:
+            sctxt += ("<p>The following chart shows number of events of "
+                      "different types in {0}'s activity stream. In the "
+                      "time frame included in this analysis, {0}'s event "
+                      "stream included "
+                      "a total of {1} events and they are all ") \
+                .format(firstname, sum(evtcounts))
+
+            for i, e in enumerate(events):
+                if i == len(events) - 1:
+                    sctxt += "or "
+                sctxt += ("<span class=\"evttype\" data-ind=\"{1}\">{0}"
+                          "</span>").format(evtverbs.get(e), i)
+                if i < len(events) - 1:
+                    sctxt += ", "
+            sctxt += ". "
+
+            sctxt += """</p><div class="hist-block">
+    <div id="events"></div>
+</div>"""
+
+        if langs and len(langs) > 1:
+            sctxt += ("<p>{0} has contributed to repositories in {1} "
+                      "different languages. ").format(firstname, len(langs))
+            sctxt += ("In particular, {0} is a serious <strong>{1}</strong> "
+                      "expert").format(firstname, langs[0][0])
+            ls = [float(l[1]) for l in langs]
+            if (ls[0] - ls[1]) / sum(ls) < 0.25:
+                sctxt += (" with a surprisingly broad knowledge of {0} "
+                          "as well").format(langs[1][0])
+            sctxt += ". "
+            sctxt += ("The following chart shows the number of contributions "
+                      "made by {0} to repositories where the main "
+                      "language is listed as ").format(firstname)
+            for i, l in enumerate(langs):
+                if i == len(langs) - 1:
+                    sctxt += "or "
+                sctxt += ("<span class=\"evttype\" data-ind=\"{1}\">{0}"
+                          "</span>").format(l[0], i)
+                if i < len(langs) - 1:
+                    sctxt += ", "
+            sctxt += "."
+            sctxt += """</p><div class="hist-block">
+    <div id="languages"></div>
+</div>"""
+
+        if langs and len(langs) == 1:
+            sctxt += ("<p>{0} seems to speak only one programming language: "
+                      "<strong>{1}</strong>. Maybe it's about time to branch "
+                      "out a bit.</p>").format(firstname, langs[0][0])
+
     # Format the results.
     results = {"summary": summary}
     results["events"] = [" ".join(re.findall("([A-Z][a-z]+)", e))
                          for e in events]
+    results["event_counts"] = evtcounts
     results["tz"] = tz
     results["total"] = total
     results["week"] = week
     results["hacker_type"] = hacker_type
     results["day"] = day
-    results["activity"] = raw[2].items()
+    results["schedule_text"] = sctxt
+    # results["activity"] = raw[2].items()
     results["languages"] = langs
     results["lang_user"] = langname
     results["language_rank"] = langrank
@@ -457,8 +584,7 @@ def compare(username, other):
                            "No stats for user '{0}'".format(username)}), 404
 
     if not total2:
-        return json.dumps({"message":
-                           "No stats for user '{0}'".format(other)}), 404
+        return "we don't have any statistics about {0}".format(other)
 
     # Compare the fractional event types.
     evts1 = dict(raw[2])

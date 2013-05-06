@@ -2,6 +2,8 @@
 
   "use strict";
 
+  var cb = d3.scale.category10();
+
   window.histogram = function () {
     var width = 200,
         height = 150,
@@ -61,7 +63,6 @@
           return "translate("+x(i)+",0)";
         });
 
-        var cb = d3.scale.category10();
         bars.selectAll("rect")
             .style("fill", function (d) {
               var ind = d3.select(this).attr("data-ind");
@@ -118,6 +119,65 @@
     };
 
     return hist;
+  };
+
+  window.piechart = function () {
+    var dim = 200, margin = 50;
+
+    var pie = function (selection) {
+      selection.each(function (data) {
+        var el = d3.select(this),
+            sel = el.selectAll("svg").data([data]),
+            arc = d3.svg.arc()
+                    .outerRadius(0.5 * dim)
+                    .innerRadius(0),
+            plo = d3.layout.pie()
+                    .sort(null)
+                    .value(function(d) { return d; });
+
+        sel.enter().append("svg")
+
+        var g = sel
+                    .attr("width", dim + margin)
+                    .attr("height", dim + margin)
+                   .append("g")
+                    .attr("transform", "translate("+0.5*(dim+margin)+","
+                          +0.5*(dim+margin)+")");
+
+        var arcs = g.selectAll(".arc")
+                      .data(plo(data))
+                    .enter().append("g")
+                      .attr("class", "arc");
+
+        arcs.append("path")
+            .attr("d", arc)
+            .style("fill-opacity", 0.8)
+            .style("fill", function(d, i) { return cb(i); });
+
+        arcs.append("text")
+          .attr("transform", function(d) {
+            var v = arc.centroid(d),
+                norm = Math.sqrt(v[0]*v[0] + v[1]*v[1]);
+            v[0] *= 2.25;
+            v[1] *= 2.25;
+            return "translate("+v+")";
+          })
+          .attr("dy", ".35em")
+          .style("text-anchor", "middle")
+          .text(function(d) { return d.data; })
+          .style("stroke", function(d, i) { return cb(i); });
+
+        sel.exit().remove();
+      })
+    };
+
+    pie.dim = function (value) {
+      if (!arguments.length) return dim;
+      dim = value;
+      return pie;
+    };
+
+    return pie;
   };
 
 })();
