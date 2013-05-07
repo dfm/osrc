@@ -4,9 +4,66 @@
 
 {% block body %}
 
+<div class="front-splash">
+    <div class="splash-text">
+        Enter a <a href="https://github.com">GitHub</a> username to
+        see a dynamically generated progress report for their open source
+        contributions
+    </div>
+    <form action="javascript:goto_user();">
+        <input id="username" type="text" placeholder="Try 'dfm', for example…">
+    </form>
+    <div class="splash-text">
+        or keep reading to find out what's going on here.
+    </div>
+</div>
+
+<h1>
+    How it works
+</h1>
+
+<p>
+Every day, many thousands of open source contributions are made on
+<a href="https://github.com">GitHub</a> by developers around the world.
+This data is publicly available through
+<a href="http://developer.github.com">the API</a> and&mdash;even more
+conveniently&mdash;on the <a href="http://githubarchive.org/">GitHub
+Archive</a>. This is generally a pretty fun data set to play with but it
+is particularly exciting for hackers because we get to play with data that
+describes <i>our own behavior</i>! Last year, shortly after the full event
+stream was publicly released,
+<a href="https://github.com/blog/1118-the-github-data-challenge">the first
+annual GitHub data challenge</a> produced
+<a href="https://github.com/blog/1162-github-data-challenge-winners">some
+sick data visualizations</a> and it's clear that people at GitHub
+<a href="https://github.com/blog/1360-introducing-contributions">have</a>
+<a href="https://github.com/blog/1476-get-up-to-speed-with-pulse">been</a>
+<a href="https://github.com/blog/1359-the-octoverse-in-2012">thinking</a>
+about how to Use The Data For Good™.
+</p>
+
+<p>
+The one graph that is especially awesome
+in all sorts of surprising ways is the
+<a href="https://github.com/blog/1360-introducing-contributions">contributions
+heat map</a> on every user's profile page. What sets this apart from the
+other visualizations that already exist on the site? It makes a <i>general
+statement</i> about <i>one specific user</i>. It lets a developer have a
+global view of their contributions, skills and habits. This ends up being
+extremely motivating because it lets the developer see their progress in
+real time. With this in mind, it seemed like a good idea to provide a more
+complete set of global statistics summarizing the hacker personality of
+any GitHub user.
+</p>
+
+<p>
+So that's what I did.
+</p>
+
 <div class="hist-block">
     <div id="week" class="hist"></div>
     <div id="week-legend" class="hist"></div>
+    <div id="week-rep"></div>
 </div>
 
 {% endblock %}
@@ -18,6 +75,25 @@
 <script src="{{ url_for(".static", filename="jquery-1.9.1.min.js") }}"></script>
 <script src="{{ url_for(".static", filename="plot.js") }}"></script>
 <script>
+
+function goto_user() {
+    var val = $("#username").val();
+    if (val) window.location = "{{ url_for(".user", username="") }}"+val;
+    return false;
+}
+
+function show_rep(cls) {
+    return function (data) {
+        var sel = d3.select("#week-rep").selectAll("span").data([data]);
+        sel.enter().append("span");
+        sel.html(function (d) {
+            return "A good example of "+cls+" is " +
+                "<a href=\"{{ url_for(".user", username="") }}"+d+"\">"
+                +d+"</a>";
+        });
+        sel.exit().remove();
+    };
+}
 
 d3.json("{{ url_for(".static", filename="week_means.json") }}", function (data) {
 
@@ -31,10 +107,14 @@ d3.json("{{ url_for(".static", filename="week_means.json") }}", function (data) 
     var week_hist = window.histogram().width(200)
                                       .labels(["S","M","T","W","T","F","S"]);
     d3.select("#week").datum(data[keys[0]]).call(week_hist);
+    $.ajax({
+        url: "{{ url_for(".rep", cls="") }}" + keys[0],
+        success: show_rep(keys[0])
+    });
 
     // Week type legend.
     var svg = d3.select("#week-legend").append("svg")
-                    .attr("width", 200)
+                    .attr("width", 150)
                     .attr("height", 200)
                 .append("g")
                     .attr("transform", "translate(0,30)");
@@ -49,6 +129,10 @@ d3.json("{{ url_for(".static", filename="week_means.json") }}", function (data) 
                     if (d0 === d) return "#1f77b4";
                     return "#222";
                 });
+            });
+            $.ajax({
+                url: "{{ url_for(".rep", cls="") }}" + d,
+                success: show_rep(d)
             });
         })
         .style("cursor", "pointer")

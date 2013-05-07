@@ -38,6 +38,7 @@ _basepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 week_means = json.load(open(os.path.join(_basepath, "week_means.json")))
 mean_desc, means = zip(*(week_means.items()))
 means = np.array(means)
+week_reps = json.load(open(os.path.join(_basepath, "week_reps.json")))
 
 evttypes = {
     "PushEvent": "{user} is {more} of a pusher",
@@ -118,6 +119,14 @@ def before_request():
 @app.route("/")
 def index():
     return flask.render_template("index.html")
+
+
+@app.route("/about/rep/<cls>")
+def rep(cls):
+    # Get the name of a representative user for a class of weekly schedule.
+    nm = week_reps.get(cls, [""])
+    p = 1. / np.sqrt(np.arange(1, len(nm) + 1))
+    return np.random.choice(nm, p=p / np.sum(p))
 
 
 def get_tz(location):
@@ -257,7 +266,7 @@ def get_stats(username):
         pass
 
     # Get the connected users.
-    connections = raw[n + 4]
+    connections = [c for c in raw[n + 4] if c.lower() != ghuser]
 
     # Get language rank.
     langrank = None

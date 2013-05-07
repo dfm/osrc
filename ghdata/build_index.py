@@ -17,6 +17,7 @@ evttypes = [l.strip() for l in open(os.path.join(_basepath, "evttypes.txt"))]
 langs = [l.strip() for l in open(os.path.join(_basepath, "languages.txt"))]
 
 index_filename = os.path.join(_basepath, "index.h5")
+week_index_filename = os.path.join(_basepath, "week_index.h5")
 points_filename = os.path.join(_basepath, "points.h5")
 
 nevts = len(evttypes)
@@ -44,6 +45,9 @@ def build_index():
     with h5py.File(points_filename, "w") as f:
         f["points"] = points
         f["names"] = usernames
+
+    flann.build_index(points[:, 1:8])
+    flann.save_index(week_index_filename)
 
 
 def get_vector(user, pipe=None):
@@ -126,6 +130,40 @@ def get_neighbors(name):
 
     return list(usernames)
 
+
+def get_nearest_week(week):
+    # Load the points and user names.
+    with h5py.File(points_filename, "r") as f:
+        points = f["points"][...]
+        usernames = f["names"][...]
+
+    # Load the index.
+    flann = pyflann.FLANN()
+    flann.load_index(week_index_filename, points[:, 1:8])
+
+    inds, dists = flann.nn_index(np.atleast_1d(week), num_neighbors=300)
+    inds = inds[0]
+
+    return usernames[inds], points[inds, 1:8]
+
+
 if __name__ == "__main__":
     build_index()
-    print(get_neighbors("dfm"))
+    # print(get_neighbors("dfm"))
+
+    import json
+    means = json.load(open(os.path.join(_basepath, "week_means.json")))
+    keys, mus = [], []
+    for k, m in means.iteritems():
+        keys.append(k)
+        mus.append(m)
+    mus = np.array(mus)
+
+    reps = {}
+    for i, m in enumerate(mus):
+        names, pos = get_nearest_week(m)
+        inds = np.argmin(np.sum((pos[:, :, None] - mus.T[None, :, :]) ** 2,
+                                axis=1), axis=1) == i
+        reps[keys[i]] = list(names[inds])
+
+    json.dump(reps, open(os.path.join(_basepath, "week_reps.json"), "w"))

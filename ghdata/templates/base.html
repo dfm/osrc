@@ -46,6 +46,15 @@
             margin-bottom: 35px;
         }
 
+        .header a {
+            color: #7F8C8D;
+            text-decoration: none;
+        }
+
+        .header a:hover {
+            color: #333;
+        }
+
         .profile-badge {
             line-height: 1;
             text-align: center;
@@ -68,6 +77,15 @@
             color: #333;
         }
 
+        a .profile-name {
+            color: #333;
+            text-decoration: none;
+        }
+
+        a:hover .profile-name {
+            color: #333;
+        }
+
         .clearfix:after {
             content: ".";
             display: block;
@@ -82,7 +100,6 @@
         }
 
         p {
-            font-style: italic;
             font-weight: 300;
         }
 
@@ -114,12 +131,48 @@
             font-weight: 600;
         }
 
+        #week-rep {
+            font-family: "Helvetica Neue", Helvetica, sans-serif;
+            font-size: 13px;
+            color: #222;
+        }
+
+        input {
+            font-family: "Helvetica Neue", Helvetica, sans-serif;
+            font-size: 18pt;
+            font-weight: 300;
+            color: #222;
+            width: 600px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        input:focus {
+            border-color: #1ABC9C;
+            outline: 0;
+            outline: thin dotted \9; /* IE6-9 */
+        }
+
+        .splash-text {
+            font-size: 18pt;
+            font-weight: 300;
+            width: 600px;
+            line-height: 1.4;
+            margin: 20px auto;
+        }
+
+        .front-splash {
+            text-align: center;
+            margin: 70px 0;
+        }
+
     </style>
 
 </head>
 <body>
 
-    <div class="header">The Open Source Report Card</div>
+    <div class="header"><a href="/">The Open Source Report Card</a></div>
 
     <div class="container">{% block body %}{% endblock %}</div>
 
