@@ -154,7 +154,7 @@ GitHub users and ran
 unsupervised clustering of samples in a vector space. In particular, it
 assumes that your samples come from <code>K</code> distinct "classes" and
 it finds a representative vector for each cluster. After removing three
-redundant means (come on, we're just having fun here :-) and labelling each
+redundant means (come on, we're just having fun here) and labelling each
 cluster with a human readable name, the results were very exciting! The
 chart below shows the resulting means for each class of user. Click on the
 names on the right to see the other classes.
@@ -214,11 +214,11 @@ In order to find nearby users in this space, I used the Python bindings
 in <a href="http://people.cs.ubc.ca/~mariusm/index.php">Marius Muja</a>'s
 <a href="http://www.cs.ubc.ca/~mariusm/index.php/FLANN/FLANN">Fast Library
 for Approximate Nearest Neighbors (FLANN)</a> to build an index over 50000
-"moderately active" users in behavior space. The lookup on this index is
-extremely efficient so it's easy to look up a list some number of users that
-exhibit similar behavior to a particular user. For example,
-<a href="/mariusmuja">Marius Muja</a>'s own profile shows that his hacker
-personality is similar to <a href="/bdpayne">Bryan Payne</a>'s.
+"moderately active" users in behavior space. After building the index,
+the K nearest neighbor lookup is extremely efficient and fast enough to
+run in real time.
+For example, <a href="/mariusmuja">Marius Muja's own profile</a> shows that
+his hacker personality is similar to <a href="/bdpayne">Bryan Payne</a>'s.
 </p>
 
 <h2>The Report</h2>
