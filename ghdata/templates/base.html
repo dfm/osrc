@@ -19,6 +19,7 @@
             font-size: 16pt;
             line-height: 2;
             color: #333;
+            padding-bottom: 50px;
         }
 
         a {
@@ -191,6 +192,18 @@
             margin: 70px 0;
         }
 
+        #footer {
+            border-top: 1px solid #BDC3C7;
+            background: #ddd;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            padding: 15px 0;
+            font-size: 12px;
+            font-style: italic;
+            color: #222;
+        }
+
     </style>
 
 </head>
@@ -199,6 +212,16 @@
     <div class="header"><a href="/">The Open Source Report Card</a></div>
 
     <div class="container">{% block body %}{% endblock %}</div>
+
+    <div id="footer">
+        <div class="container">
+            The Open Source Report Card was built by
+            <a href="http://dan.iel.fm">Dan Foreman-Mackey</a> based on event
+            data from the <a href="https://github.com">GitHub</a>
+            <a href="http://githubarchive.org">timeline</a>.
+            Want <a href="/#how-it-works">more information</a>?
+        </div>
+    </div>
 
     {% block scripts %}{% endblock %}
 
