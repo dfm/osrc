@@ -308,7 +308,7 @@ def get_stats(username):
                                 "a serious", "an awesome",
                                 "a top notch", "a trend setting"])
         if langname in ["Javascripter", "Rubyist"] and np.random.rand() > 0.5:
-            adj = "a champ"
+            adj = "a rockstar"
 
         summary += ("{0} is {2} <a href=\"#languages\">{1}</a>"
                     .format(firstname, langname, adj))
