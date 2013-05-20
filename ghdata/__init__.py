@@ -253,6 +253,11 @@ def get_stats(username):
     day = zip(*[make_hist(d.iteritems(), 24, offset=offset)
                 for k, d in zip(events, raw[n + m:n + 2 * m])])
 
+    # If there's no weekly schedule, we don't have enough info.
+    if not len(week):
+        return json.dumps({"message":
+                           "Couldn't find any stats for this user."}), 404
+
     # Get the language proportions.
     n = n + 2 * m
     langs = raw[n]
@@ -296,7 +301,6 @@ def get_stats(username):
         mu /= np.sum(mu)
         hacker_type = mean_desc[np.argmin(np.sum(np.abs(means - mu[None, :]),
                                                  axis=1))]
-
     # Build a human readable summary.
     summary = "<p>"
     if langname:
@@ -338,9 +342,6 @@ def get_stats(username):
             tod = "late evening"
         summary += " who seems to <a href=\"#day\">work best in the {0}</a>" \
                    .format(tod)
-    else:
-        summary += (" who's performance is weak enough that we really just "
-                    "don't have much to say")
     summary += ". "
 
     if vulgarity:
