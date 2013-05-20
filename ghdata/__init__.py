@@ -94,7 +94,7 @@ languages = {
     "Java": "{user} is {more} a Javavore",
     "C": "{user} is {more} a sysadmin",
     "FORTRAN": "{user} is way {more} old school",
-    "JavaScript": "{user} is probably {more} of a brogrammer",
+    "JavaScript": "{user} is probably {more} of a Javascripter",
     "C++": "{user} spends {more} time working for the man",
     "R": "{user} is {more} of a useR",
 }
@@ -103,7 +103,7 @@ language_users = {
     "Python": "Pythonista",
     "Ruby": "Rubyist",
     "Go": "Gopher",
-    "JavaScript": "brogrammer",
+    "JavaScript": "Javascripter",
     "FORTRAN": "old-school hacker",
     "R": "useR",
 }
@@ -303,8 +303,8 @@ def get_stats(username):
         adj = np.random.choice(["a high caliber", "a heavy hitting",
                                 "a serious", "an awesome",
                                 "a top notch", "a trend setting"])
-        if langname in ["brogrammer", "Rubyist"] and np.random.rand() > 0.5:
-            adj = "a rockstar"
+        if langname in ["Javascripter", "Rubyist"] and np.random.rand() > 0.5:
+            adj = "a champ"
 
         summary += ("{0} is {2} <a href=\"#languages\">{1}</a>"
                     .format(firstname, langname, adj))
