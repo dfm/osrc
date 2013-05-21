@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Something Went Wrong With The Open Source Report Card{% endblock %}
+
+{% block body %}
+
+<div class="front-splash">
+    <div class="splash-text">
+        Sorry guys… It looks like something went wrong! {{ error_message }}
+    </div>
+    <div class="splash-text">
+        How about you read about <a href="/#how-it-works">how this work</a> and then come back later?
+    </div>
+    <div class="splash-text">
+        Sorry!
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{% endblock %}

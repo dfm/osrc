@@ -155,7 +155,11 @@ def user(username):
     if r.status_code != requests.codes.ok:
         logging.error("GitHub API failed: {0}".format(r.status_code))
         logging.error(r.text)
-        flask.abort(404)
+        if r.status_code == 404:
+            message = "That user doesn't seem to exist."
+        else:
+            message = "We've probably exceeded GitHub's API limits."
+        return flask.render_template("error.html", error_message=message)
 
     # Parse the JSON response.
     user = r.json()
@@ -306,9 +310,8 @@ def get_stats(username):
     if langname:
         adj = np.random.choice(["a high caliber", "a heavy hitting",
                                 "a serious", "an awesome",
-                                "a top notch", "a trend setting"])
-        if langname in ["Javascripter", "Rubyist"] and np.random.rand() > 0.5:
-            adj = "a rockstar"
+                                "a top notch", "a trend setting",
+                                "a champion"])
 
         summary += ("{0} is {2} <a href=\"#languages\">{1}</a>"
                     .format(firstname, langname, adj))
