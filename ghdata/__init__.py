@@ -150,33 +150,55 @@ def get_tz(location):
 
 @app.route("/<username>")
 def user(username):
-    # Start by getting the user information from the API.
-    r = requests.get(ghapi_url + "/users/" + username, params=flask.g.ghauth)
-    if r.status_code != requests.codes.ok:
-        logging.error("GitHub API failed: {0}".format(r.status_code))
-        logging.error(r.text)
-        if r.status_code == 404:
-            message = "That user doesn't seem to exist."
-        else:
-            message = "We've probably exceeded GitHub's API limits."
-        return flask.render_template("error.html", error_message=message)
-
-    # Parse the JSON response.
-    user = r.json()
-
-    # Get the user's name or login.
-    name = user.get("name") or user.get("login") or username
-
-    # Check timezone.
     ghuser = username.lower()
-    if not flask.g.redis.exists("gh:user:{0}:tz".format(ghuser)):
-        location = user.get("location")
-        if location:
-            flask.g.redis.set("gh:user:{0}:tz".format(ghuser),
-                              get_tz(location))
+
+    # Get the name and gravatar from the cache if it exists.
+    pipe = flask.g.redis.pipeline()
+    pipe.get("gh:user:{0}:name".format(ghuser))
+    pipe.get("gh:user:{0}:etag".format(ghuser))
+    pipe.get("gh:user:{0}:gravatar".format(ghuser))
+    name, etag, gravatar = pipe.execute()
+    name = name.decode("utf-8")
+
+    headers = {}
+    if etag is not None:
+        headers = {"If-None-Match": etag}
+
+    r = requests.get(ghapi_url + "/users/" + username,
+                     params=flask.g.ghauth, headers=headers)
+
+    # If modified, update.
+    if r.status_code != 304:
+        if r.status_code != requests.codes.ok:
+            logging.error("GitHub API failed: {0}".format(r.status_code))
+            logging.error(r.text)
+        else:
+            user = r.json()
+            name = user.get("name") or user.get("login") or username
+            etag = r.headers["ETag"]
+            gravatar = user.get("gravatar_id", "none")
+
+            # Update the cache.
+            pipe = flask.g.redis.pipeline()
+            pipe.set("gh:user:{0}:name".format(ghuser), name)
+            pipe.set("gh:user:{0}:etag".format(ghuser), etag)
+            pipe.set("gh:user:{0}:gravatar".format(ghuser), gravatar)
+            pipe.execute()
+
+            # Check timezone.
+            if not flask.g.redis.exists("gh:user:{0}:tz".format(ghuser)):
+                location = user.get("location")
+                if location:
+                    flask.g.redis.set("gh:user:{0}:tz".format(ghuser),
+                                      get_tz(location))
+
+    if name is None:
+        name = username
+    if gravatar is None:
+        gravatar = "none"
 
     return flask.render_template("report.html",
-                                 gravatar=user.get("gravatar_id", "none"),
+                                 gravatar=gravatar,
                                  name=name,
                                  firstname=name.split()[0],
                                  username=username)
