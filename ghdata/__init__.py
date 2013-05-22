@@ -158,7 +158,6 @@ def user(username):
     pipe.get("gh:user:{0}:etag".format(ghuser))
     pipe.get("gh:user:{0}:gravatar".format(ghuser))
     name, etag, gravatar = pipe.execute()
-    name = name.decode("utf-8")
 
     headers = {}
     if etag is not None:
@@ -196,6 +195,8 @@ def user(username):
         name = username
     if gravatar is None:
         gravatar = "none"
+
+    name = name.decode("utf-8")
 
     return flask.render_template("report.html",
                                  gravatar=gravatar,
