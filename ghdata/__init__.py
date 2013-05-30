@@ -374,7 +374,7 @@ def get_stats(username):
         if vulgarity < 50:
             summary += ("I hate to say it but {0} does seem&mdash;as one of "
                         "the top {1}% most vulgar users on GitHub&mdash;to "
-                        "be <a href=\"#swearing\">a tad foul-mouthed</a> "
+                        "be a tad foul-mouthed "
                         "(with a particular affinity "
                         "for filthy words like '{2}').").format(firstname,
                                                                 vulgarity,
@@ -382,7 +382,7 @@ def get_stats(username):
         elif vulgarity < 100:
             summary += ("I hate to say it but {0} is becoming&mdash;as one of "
                         "the top {1}% most vulgar users on GitHub&mdash;"
-                        "<a href=\"#swearing\">a tad foul-mouthed</a> "
+                        "a tad foul-mouthed "
                         "(with a particular affinity "
                         "for filthy words like '{2}').").format(firstname,
                                                                 vulgarity,
