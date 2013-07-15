@@ -105,7 +105,7 @@ language_users = {
     "Go": "Gopher",
     "Java": "Javavore",
     "C": "sysadmin",
-    "FORTRAN": "old-school  hacker",
+    "FORTRAN": "old-school hacker",
     "JavaScript": "Javascripter",
     "C++": "corporate slave",
     "R": "useR",
