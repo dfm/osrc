@@ -41,7 +41,7 @@ means = np.array(means)
 week_reps = json.load(open(os.path.join(_basepath, "week_reps.json")))
 
 evttypes = {
-    "PushEvent": "{user} is {more} of a pusher",
+    "PushEvent": "{user} is {more} of a code pusher",
     "CreateEvent": "{user} spends {more} of their time creating new "
                    "repositories and branches",
     "CommitCommentEvent": "{user} is far {more} likely to comment on your "
@@ -59,7 +59,7 @@ evtactions = {
     "CreateEvent": "creating new repositories and branches",
     "CommitCommentEvent": "commenting on your commits",
     "FollowEvent": "following other users",
-    "ForkEvent": "forking people's code",
+    "ForkEvent": "forking other people's code",
     "IssuesEvent": "creating issues",
     "IssueCommentEvent": "commenting on issues",
     "PublicEvent": "open sourcing new projects",
@@ -103,8 +103,11 @@ language_users = {
     "Python": "Pythonista",
     "Ruby": "Rubyist",
     "Go": "Gopher",
+    "Java": "Javavore",
+    "C": "sysadmin",
+    "FORTRAN": "old-school  hacker",
     "JavaScript": "Javascripter",
-    "FORTRAN": "old-school hacker",
+    "C++": "corporate slave",
     "R": "useR",
 }
 
@@ -334,7 +337,11 @@ def get_stats(username):
         adj = np.random.choice(["a high caliber", "a heavy hitting",
                                 "a serious", "an awesome",
                                 "a top notch", "a trend setting",
-                                "a champion"])
+                                "a champion", "an epic",
+                                "a language-defining", "a leading"
+                                "a prime", "a capital",
+                                "an exceptional", "a distinguished",
+                                "a premium", "a noteworthy"])
 
         summary += ("{0} is {2} <a href=\"#languages\">{1}</a>"
                     .format(firstname, langname, adj))
@@ -345,7 +352,7 @@ def get_stats(username):
         if len(events):
             if events[0] in evtactions:
                 summary += (" who <a href=\"#events\">would rather be {0} "
-                            "instead of pushing code</a>").format(
+                            "instead of pushing code, but still pushes code</a>").format(
                                 evtactions[events[0]])
             elif events[0] == "PushEvent":
                 summary += " who <a href=\"#events\">loves pushing code</a>"
@@ -559,7 +566,7 @@ def get_stats(username):
 
         if langs and len(langs) == 1:
             sctxt += ("<p>{0} seems to speak only one programming language: "
-                      "<strong>{1}</strong>. Maybe it's about time to branch "
+                      "<strong>{1}</strong>. Maybe it's about time for {0} to branch "
                       "out a bit.</p>").format(firstname, langs[0][0])
 
     # Format the results.
