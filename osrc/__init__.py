@@ -15,11 +15,11 @@ import logging
 import requests
 import numpy as np
 
-from ghdata.build_index import get_neighbors
+from osrc.build_index import get_neighbors
 
 
 app = flask.Flask(__name__)
-app.config.from_object("ghdata.config")
+app.config.from_object("osrc.config")
 
 ghapi_url = "https://api.github.com"
 mqapi_url = "http://open.mapquestapi.com/geocoding/v1/address"

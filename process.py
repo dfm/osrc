@@ -22,7 +22,7 @@ redis_pool = redis.ConnectionPool(port=int(os.environ.get("OSRC_REDIS_PORT",
 date_re = re.compile(r"([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]+)\.json.gz")
 
 sw_re = re.compile("|".join([r"(?:\b{0}\b)".format(l.strip())
-                             for l in open("ghdata/static/swears.txt")]))
+                             for l in open("osrc/static/swears.txt")]))
 
 
 def process(filename):

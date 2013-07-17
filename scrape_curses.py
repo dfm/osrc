@@ -22,7 +22,7 @@ def get_letter(letter):
 
 
 if __name__ == "__main__":
-    fn = "ghdata/static/swears.txt"
+    fn = "osrc/static/swears.txt"
     open(fn, "w").close()
     for l in "abcdefghijklmnopqrstuvwxyz":
         print("Getting words for letter: '{0}'...".format(l), end="")
