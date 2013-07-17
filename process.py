@@ -7,6 +7,7 @@ from __future__ import (division, print_function, absolute_import,
 __all__ = ["process"]
 
 import re
+import os
 import sys
 import gzip
 import json
@@ -15,7 +16,8 @@ import redis
 from datetime import date
 from multiprocessing import Pool
 
-redis_pool = redis.ConnectionPool()
+redis_pool = redis.ConnectionPool(port=int(os.environ.get("OSRC_REDIS_PORT",
+                                                          6380)))
 
 date_re = re.compile(r"([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]+)\.json.gz")
 
@@ -28,7 +30,6 @@ def process(filename):
     # always right but it'll do).
     year, month, day, hour = map(int, date_re.findall(filename)[0])
     weekday = date(year=year, month=month, day=day).strftime("%w")
-    datestr = "{0:4d}-{1:02d}-{2:02d}".format(year, month, day)
 
     # Set up a redis pipeline.
     r = redis.Redis(connection_pool=redis_pool)
@@ -49,12 +50,16 @@ def process(filename):
 
             # Get the user involved and skip if there isn't one.
             actor = event["actor"]
-            if actor is None:
-                # This was probably an anonymous event (like a gist event).
+            attrs = event.get("actor_attributes", {})
+            if actor is None or attrs.get("type") != "User":
+                # This was probably an anonymous event (like a gist event)
+                # or an organization event.
                 continue
 
+            # Is this an organization?
+
             # Normalize the user name.
-            actor = actor.lower()
+            key = actor.lower()
 
             # Get the type of event.
             evttype = event["type"]
@@ -69,28 +74,23 @@ def process(filename):
             # Increment the global sum histograms.
             pipe.incr("gh:total", nevents)
             pipe.hincrby("gh:day", weekday, nevents)
-            pipe.hincrby("gh:date", datestr, nevents)
             pipe.hincrby("gh:hour", hour, nevents)
-            pipe.zincrby("gh:user", actor, nevents)
+            pipe.zincrby("gh:user", key, nevents)
             pipe.zincrby("gh:event", evttype, nevents)
 
             # Event histograms.
             pipe.hincrby("gh:event:{0}:day".format(evttype), weekday, nevents)
-            pipe.hincrby("gh:event:{0}:date".format(evttype), datestr, nevents)
             pipe.hincrby("gh:event:{0}:hour".format(evttype), hour, nevents)
 
             # User schedule histograms.
-            pipe.hincrby("gh:user:{0}:day".format(actor), weekday, nevents)
-            pipe.hincrby("gh:user:{0}:date".format(actor), datestr, nevents)
-            pipe.hincrby("gh:user:{0}:hour".format(actor), hour, nevents)
+            pipe.hincrby("gh:user:{0}:day".format(key), weekday, nevents)
+            pipe.hincrby("gh:user:{0}:hour".format(key), hour, nevents)
 
             # User event type histogram.
-            pipe.zincrby("gh:user:{0}:event".format(actor), evttype, nevents)
-            pipe.hincrby("gh:user:{0}:event:{1}:day".format(actor, evttype),
+            pipe.zincrby("gh:user:{0}:event".format(key), evttype, nevents)
+            pipe.hincrby("gh:user:{0}:event:{1}:day".format(key, evttype),
                          weekday, nevents)
-            pipe.hincrby("gh:user:{0}:event:{1}:date".format(actor, evttype),
-                         datestr, nevents)
-            pipe.hincrby("gh:user:{0}:event:{1}:hour".format(actor, evttype),
+            pipe.hincrby("gh:user:{0}:event:{1}:hour".format(key, evttype),
                          hour, nevents)
 
             # Check for swear words.
@@ -105,41 +105,44 @@ def process(filename):
                             pipe.zincrby("gh:curse", w, 1)
 
                             # User's favorite words.
-                            pipe.zincrby("gh:user:{0}:curse".format(actor),
+                            pipe.zincrby("gh:user:{0}:curse".format(key),
                                          w, 1)
 
                             # Vulgar users?
-                            pipe.zincrby("gh:curse:user", actor, 1)
+                            pipe.zincrby("gh:curse:user", key, 1)
 
             # Parse the name and owner of the affected repository.
             repo = event.get("repository", {})
-            owner, name = (repo.get("owner"), repo.get("name"))
+            owner, name, org = (repo.get("owner"), repo.get("name"),
+                                repo.get("organization"))
             if owner and name:
                 repo_name = "{0}/{1}".format(owner, name)
                 pipe.zincrby("gh:repo", repo_name, nevents)
 
                 # Is the user contributing to their own project.
-                if owner == actor:
-                    pipe.zincrby("gh:user:{0}:repo".format(actor),
+                okey = owner.lower()
+                if okey == key:
+                    pipe.zincrby("gh:user:{0}:repo".format(key),
                                  repo_name, nevents)
 
                 # If not, save all sorts of goodies.
                 else:
                     if contribution:
                         pipe.zincrby("gh:contribution", repo_name, nevents)
-                        pipe.zincrby("gh:user:{0}:contribution".format(actor),
+                        pipe.zincrby("gh:user:{0}:contribution".format(key),
                                      repo_name, nevents)
 
-                    # How connected are these two users?
-                    pipe.zincrby("gh:user:{0}:connection".format(actor),
-                                 owner, nevents)
-                    pipe.zincrby("gh:user:{0}:connection".format(owner),
-                                 actor, nevents)
+                    if org is None:
+                        # how connected are these two users?
+                        pipe.zincrby("gh:user:{0}:connection".format(key),
+                                     owner, nevents)
+                        pipe.zincrby("gh:user:{0}:connection".format(okey),
+                                     actor, nevents)
 
-                    # Update the global count of connections.
-                    pipe.incr("gh:connection", nevents)
-                    pipe.zincrby("gh:connection:user", actor, nevents)
-                    pipe.zincrby("gh:connection:user", owner, nevents)
+                        # update the global count of connections.
+                        pipe.incr("gh:connection", nevents)
+                        pipe.zincrby("gh:connection:user", key, nevents)
+                        pipe.zincrby("gh:connection:user", owner, nevents)
 
                 # Do we know what the language of the repository is?
                 language = repo.get("language")
@@ -152,13 +155,13 @@ def process(filename):
                         pipe.zincrby("gh:pushes:lang", language, nevents)
 
                     # What are a user's favorite languages?
-                    pipe.zincrby("gh:user:{0}:lang".format(actor), language,
+                    pipe.zincrby("gh:user:{0}:lang".format(key), language,
                                  nevents)
 
                     # Who are the most important users of a language?
                     if contribution:
                         pipe.zincrby("gh:lang:{0}:user".format(language),
-                                     actor, nevents)
+                                     key, nevents)
 
                     # Vulgar languages.
                     if len(curses):
@@ -166,7 +169,7 @@ def process(filename):
                                       w, 1) for w in curses]
                         pipe.zincrby("gh:curse:lang", language, len(curses))
 
-        pipe.execute()
+        # pipe.execute()
 
         print("Processed {0} events in {1} [{2:.2f} seconds]"
               .format(n, filename, time.time() - strt))
