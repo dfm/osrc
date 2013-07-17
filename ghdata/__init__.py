@@ -48,7 +48,6 @@ evttypes = {
                           "commits",
     "FollowEvent": "{user} is {more} of a follower",
     "ForkEvent": "{user} is a {more} serious forker",
-    "IssuesEvent": "{user} is {more} of a whiner",
     "IssueCommentEvent": "{user} spends {more} of their time commenting on "
                          "issues",
     "PublicEvent": "{user} is {more} likely to open source a new project",
