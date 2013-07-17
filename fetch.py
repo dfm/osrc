@@ -11,8 +11,10 @@ from gevent import monkey
 monkey.patch_all()
 
 import os
+import shutil
 import requests
 from itertools import product
+from tempfile import NamedTemporaryFile
 
 data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 filename = os.path.join(data_dir, "{year}-{month:02d}-{day:02d}-{n}.json.gz")
@@ -37,8 +39,15 @@ def fetch(year, month, day, n):
     remote = url.format(**kwargs)
     r = requests.get(remote)
     if r.status_code == requests.codes.ok:
-        with open(local_fn, "wb") as f:
-            f.write(r.content)
+        # Atomically write to disk.
+        # http://stackoverflow.com/questions/2333872/ \
+        #        atomic-writing-to-file-with-python
+        f = NamedTemporaryFile("wb", delete=False)
+        f.write(r.content)
+        f.flush()
+        os.fsync(f.fileno())
+        f.close()
+        shutil.move(f.name, local_fn)
 
 
 if __name__ == "__main__":
