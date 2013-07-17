@@ -27,21 +27,23 @@ url = "http://data.githubarchive.org/{year}-{month:02d}-{day:02d}-{n}.json.gz"
 
 def fetch(year, month, day, n):
     kwargs = {"year": year, "month": month, "day": day, "n": n}
+    local_fn = filename.format(**kwargs)
+
+    # Skip if the file exists.
+    if os.path.exists(local_fn):
+        return
+
+    # Download the remote file.
     remote = url.format(**kwargs)
     r = requests.get(remote)
     if r.status_code == requests.codes.ok:
-        local_fn = filename.format(**kwargs)
         with open(local_fn, "wb") as f:
             f.write(r.content)
-        print("Saved: {0}".format(local_fn))
-
-    else:
-        print("Skipped: {0}".format(remote))
 
 
 if __name__ == "__main__":
-    year = 2013
-    for month, day in product(range(1, 4), range(1, 32)):
-        jobs = [gevent.spawn(fetch, year, month, day, n) for n in range(24)]
+    for year, month in product(range(2011, 2014), range(1, 13)):
+        jobs = [gevent.spawn(fetch, year, month, day, n)
+                for n, day in product(range(1, 32), range(24))]
         gevent.joinall(jobs)
-        print("Finished {0}-{1}-{2}".format(year, month, day))
+        print("Finished {0}-{1}".format(year, month))
