@@ -93,24 +93,6 @@ def process(filename):
             pipe.hincrby("gh:user:{0}:event:{1}:hour".format(key, evttype),
                          hour, nevents)
 
-            # Check for swear words.
-            curses = []
-            if evttype == "PushEvent":
-                for sha in event.get("payload", {}).get("shas", []):
-                    words = sw_re.findall(sha[2])
-                    if len(words):
-                        curses += words
-                        for w in words:
-                            # Popularity of curse words.
-                            pipe.zincrby("gh:curse", w, 1)
-
-                            # User's favorite words.
-                            pipe.zincrby("gh:user:{0}:curse".format(key),
-                                         w, 1)
-
-                            # Vulgar users?
-                            pipe.zincrby("gh:curse:user", key, 1)
-
             # Parse the name and owner of the affected repository.
             repo = event.get("repository", {})
             owner, name, org = (repo.get("owner"), repo.get("name"),
@@ -144,6 +126,29 @@ def process(filename):
                         pipe.zincrby("gh:connection:user", key, nevents)
                         pipe.zincrby("gh:connection:user", okey, nevents)
 
+                # Check for swear words.
+                curses = []
+                if evttype == "PushEvent":
+                    for sha in event.get("payload", {}).get("shas", []):
+                        words = sw_re.findall(sha[2])
+                        if len(words):
+                            # Save the commit hash.
+                            lnk = repo_name + "/commit/" + sha[0]
+                            pipe.lpush("gh:user:{0}:vcommit".format(key), lnk)
+
+                            # Count the specific words.
+                            curses += words
+                            for w in words:
+                                # Popularity of curse words.
+                                pipe.zincrby("gh:curse", w, 1)
+
+                                # User's favorite words.
+                                pipe.zincrby("gh:user:{0}:curse".format(key),
+                                             w, 1)
+
+                                # Vulgar users?
+                                pipe.zincrby("gh:curse:user", key, 1)
+
                 # Do we know what the language of the repository is?
                 language = repo.get("language")
                 if language:
@@ -155,8 +160,9 @@ def process(filename):
                         pipe.zincrby("gh:pushes:lang", language, nevents)
 
                     # What are a user's favorite languages?
-                    pipe.zincrby("gh:user:{0}:lang".format(key), language,
-                                 nevents)
+                    if contribution:
+                        pipe.zincrby("gh:user:{0}:lang".format(key), language,
+                                     nevents)
 
                     # Who are the most important users of a language?
                     if contribution:
@@ -169,7 +175,7 @@ def process(filename):
                                       w, 1) for w in curses]
                         pipe.zincrby("gh:curse:lang", language, len(curses))
 
-        # pipe.execute()
+        pipe.execute()
 
         print("Processed {0} events in {1} [{2:.2f} seconds]"
               .format(n, filename, time.time() - strt))
