@@ -15,7 +15,7 @@ import logging
 import requests
 import numpy as np
 
-from osrc.build_index import get_neighbors
+# from osrc.build_index import get_neighbors
 
 
 app = flask.Flask(__name__)
@@ -113,7 +113,7 @@ language_users = {
 
 @app.before_request
 def before_request():
-    flask.g.redis = redis.Redis()
+    flask.g.redis = redis.Redis(port=app.config["REDIS_PORT"])
     flask.g.ghauth = {"client_id": app.config["GITHUB_ID"],
                       "client_secret": app.config["GITHUB_SECRET"]}
 
@@ -321,7 +321,7 @@ def get_stats(username):
             pass
 
     # Get neighbors.
-    neighbors = get_neighbors(ghuser)
+    neighbors = []  # get_neighbors(ghuser)
 
     # Figure out the representative weekly schedule.
     hacker_type = "a pretty inconsistent hacker"

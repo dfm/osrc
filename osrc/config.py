@@ -14,3 +14,6 @@ LOG_FILENAME = os.environ["LOG_FILENAME"]
 # GitHub API.
 GITHUB_ID = os.environ["GITHUB_ID"]
 GITHUB_SECRET = os.environ["GITHUB_SECRET"]
+
+# Redis setup.
+REDIS_PORT = os.environ.get("OSRC_REDIS_PORT", 6380)
