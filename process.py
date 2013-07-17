@@ -142,7 +142,7 @@ def process(filename):
                         # update the global count of connections.
                         pipe.incr("gh:connection", nevents)
                         pipe.zincrby("gh:connection:user", key, nevents)
-                        pipe.zincrby("gh:connection:user", owner, nevents)
+                        pipe.zincrby("gh:connection:user", okey, nevents)
 
                 # Do we know what the language of the repository is?
                 language = repo.get("language")
