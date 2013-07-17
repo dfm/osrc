@@ -337,10 +337,8 @@ def get_stats(username):
                                 "a serious", "an awesome",
                                 "a top notch", "a trend setting",
                                 "a champion", "an epic",
-                                "a language-defining", "a leading"
-                                "a prime", "a capital",
                                 "an exceptional", "a distinguished",
-                                "a premium", "a noteworthy"])
+                                "a noteworthy"])
 
         summary += ("{0} is {2} <a href=\"#languages\">{1}</a>"
                     .format(firstname, langname, adj))

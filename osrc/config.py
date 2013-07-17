@@ -16,4 +16,4 @@ GITHUB_ID = os.environ["GITHUB_ID"]
 GITHUB_SECRET = os.environ["GITHUB_SECRET"]
 
 # Redis setup.
-REDIS_PORT = os.environ.get("OSRC_REDIS_PORT", 6380)
+REDIS_PORT = int(os.environ.get("OSRC_REDIS_PORT", 6380))
