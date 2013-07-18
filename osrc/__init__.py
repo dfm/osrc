@@ -256,7 +256,7 @@ def get_stats(username):
 
     # Get the vulgarity (and vulgar rank) of the user.
     pipe.zrevrange("gh:user:{0}:curse".format(ghuser), 0, -1, withscores=True)
-    pipe.zcount("gh:curse:user", 4, "+inf")
+    pipe.zcount("gh:curse:user", 10, "+inf")
     pipe.zrevrank("gh:curse:user", ghuser)
 
     # Get connected users.
@@ -374,8 +374,8 @@ def get_stats(username):
                    .format(tod)
     summary += ". "
 
-    if vulgarity:
-        if vulgarity < 50:
+    if vulgarity and vulgarity < 50:
+        if vulgarity < 25:
             summary += ("I hate to say it but {0} does seem&mdash;as one of "
                         "the top {1}% most vulgar users on GitHub&mdash;to "
                         "be a tad foul-mouthed "
@@ -383,7 +383,7 @@ def get_stats(username):
                         "for filthy words like '{2}').").format(firstname,
                                                                 vulgarity,
                                                                 curses[0][0])
-        elif vulgarity < 100:
+        elif vulgarity < 50:
             summary += ("I hate to say it but {0} is becoming&mdash;as one of "
                         "the top {1}% most vulgar users on GitHub&mdash;"
                         "a tad foul-mouthed "

@@ -38,11 +38,16 @@ def process(filename):
     # Unzip and load the file.
     strt = time.time()
     with gzip.GzipFile(filename) as f:
+        events = []
         # One event per line.
-        for n, line in enumerate(f):
+        for line in f:
+            events += line.decode("utf-8", errors="ignore") \
+                .replace("}{", "}===OSRC==={").split("===OSRC===")
+        # One event per line.
+        for n, line in enumerate(events):
             # Parse the JSON of this event.
             try:
-                event = json.loads(line.decode("utf-8", errors="ignore"))
+                event = json.loads(line)
             except:
                 print("Failed on line {0} of {1}-{2:02d}-{3:02d}-{4}"
                       .format(n, year, month, day, hour))
