@@ -192,13 +192,14 @@ def user(username):
                 if location:
                     flask.g.redis.set("gh:user:{0}:tz".format(ghuser),
                                       get_tz(location))
+    else:
+        if name is not None:
+            name = name.decode("utf-8")
 
     if name is None:
         name = username
     if gravatar is None:
         gravatar = "none"
-
-    name = name.decode("utf-8")
 
     return flask.render_template("report.html",
                                  gravatar=gravatar,
