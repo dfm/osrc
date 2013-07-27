@@ -9,3 +9,4 @@ dist
 *.egg-info
 backup.sh
 *.h5
+ads.html

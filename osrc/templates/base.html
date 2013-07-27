@@ -50,16 +50,59 @@
             margin: 0 auto;
         }
 
-        .container h1, .header {
+        .container h1, .header-title {
             text-transform: uppercase;
             font-weight: 300;
             font-size: 14pt;
             line-height: 1;
-            text-align: center;
             padding: 30px 0;
             color: #7F8C8D;
+        }
+
+        .header {
             border-bottom: 1px solid #BDC3C7;
             margin-bottom: 35px;
+        }
+
+        .container h1 {
+            text-align: center;
+            border-bottom: 1px solid #BDC3C7;
+            margin-bottom: 35px;
+        }
+
+        .header-title {
+            display: block;
+            float: left;
+            margin: 0;
+        }
+
+        .header:after {
+            content: ".";
+            display: block;
+            clear: both;
+            visibility: hidden;
+            line-height: 0;
+            height: 0;
+        }
+
+        #fusion_ad {
+            float: right;
+            width: 300px;
+            font-size: 13px;
+            line-height: 1.1;
+            margin-top: 6px;
+            text-align: right;
+        }
+
+        .fusionimg {
+            display: block;
+            float: right;
+            margin-left: 5px;
+        }
+
+        .fusiontext {
+            display: block;
+            margin-bottom: 5px;
         }
 
         .container h2 {
@@ -218,7 +261,10 @@
 </head>
 <body>
 
-    <div class="header"><a href="/">The Open Source Report Card</a></div>
+    <div class="header">
+        <a class="header-title" href="/">The<br>Open Source<br>Report Card</a>
+        {% include "ads.html" ignore missing %}
+    </div>
 
     <div class="container">{% block body %}{% endblock %}</div>
 
