@@ -93,7 +93,7 @@ languages = {
     "Java": "{user} is {more} a Javavore",
     "C": "{user} is {more} a sysadmin",
     "FORTRAN": "{user} is way {more} old school",
-    "JavaScript": "{user} is probably {more} of a Javascripter",
+    "JavaScript": "{user} is probably {more} of a JavaScripter",
     "C++": "{user} spends {more} time working for the man",
     "R": "{user} is {more} of a useR",
 }
@@ -105,7 +105,7 @@ language_users = {
     "Java": "Javavore",
     "C": "sysadmin",
     "FORTRAN": "old-school hacker",
-    "JavaScript": "Javascripter",
+    "JavaScript": "JavaScripter",
     "C++": "corporate slave",
     "R": "useR",
 }
