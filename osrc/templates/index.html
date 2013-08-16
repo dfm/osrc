@@ -70,7 +70,7 @@ can download the contents of
 <a href="https://github.com/timeline.json">timeline.json</a>&mdash;dumped in
 hour long chunks&mdash;as gzipped JSON<small>(ish)</small> files. For this
 project, I decided to freeze the scope and only download the event stream for
-January, February and March 2013. As you'll see in a moment, however,
+the first half of 2013. As you'll see in a moment, however,
 the final analysis is only based on accumulated statistics so it wouldn't be
 much harder to make these reports real time. I used
 <a href="https://github.com/dfm/osrc/blob/master/fetch.py">a Python script</a>
@@ -123,7 +123,7 @@ Then, for each user, I aggregated a summary of their behavior, including
     <li>the number of events of different types,</li>
     <li>their total number of contributions to repositories in different
         languages,</li>
-    <li>their favorite <a href="https://github.com/dfm/osrc/blob/master/ghdata/static/swears.txt">swear words</a>,</li>
+    <li>their favorite <a href="https://github.com/dfm/osrc/blob/master/osrc/static/swears.txt">swear words</a>,</li>
     <li>their number of contributions to repositories owned by others&mdash;and
         hence, their "connection" to that user.</li>
 </ul>
@@ -202,7 +202,7 @@ features to describe a user:
     <li>the average weekly schedule,</li>
     <li>the fraction of events of different types,</li>
     <li>the fraction of contributions to repositories of the
-        <a href="https://github.com/dfm/osrc/blob/master/ghdata/static/languages.txt">top
+        <a href="https://github.com/dfm/osrc/blob/master/osrc/static/languages.txt">top
         30 most popular languages</a>, and</li>
     <li>the number of contributions, connections, active repositories and
         languages used.</li>
@@ -237,7 +237,7 @@ to try to do something more sophisticated or intelligent than this but we'll
 have to live with this for now and I think that you'll be surprised by
 how well this actually works. The <small>(horrifying)</small> code that
 generates the summaries is
-<a href="https://github.com/dfm/osrc/blob/master/ghdata/__init__.py#L195">available
+<a href="https://github.com/dfm/osrc/blob/master/osrc/__init__.py">available
 on GitHub</a> <small>(obviously)</small> so I won't get too deep into the
 details here but I wanted to comment on one little hidden gem.
 </p>
