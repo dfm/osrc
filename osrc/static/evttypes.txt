@@ -16,3 +16,4 @@ PullRequestReviewCommentEvent
 PushEvent
 TeamAddEvent
 WatchEvent
+ReleaseEvent

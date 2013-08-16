@@ -7,6 +7,7 @@ from __future__ import (division, print_function, absolute_import,
 __all__ = ["build_index"]
 
 import os
+import flask
 import numpy as np
 import h5py
 import redis
@@ -26,7 +27,7 @@ nvector = 1 + 7 + nevts + 1 + 1 + 1 + 1 + nlangs + 1
 
 
 def build_index():
-    r = redis.Redis()
+    r = redis.Redis(port=6380)
 
     usernames = r.zrevrange("gh:user", 500, 50500)
 
@@ -53,7 +54,7 @@ def build_index():
 def get_vector(user, pipe=None):
     no_pipe = False
     if pipe is None:
-        r = redis.Redis()
+        r = redis.Redis(port=flask.current_app.config["REDIS_PORT"])
         pipe = r.pipeline()
         no_pipe = True
 
@@ -148,8 +149,9 @@ def get_nearest_week(week):
 
 
 if __name__ == "__main__":
-    build_index()
-    # print(get_neighbors("dfm"))
+    # build_index()
+    print(get_neighbors("rossfadely"))
+    assert 0
 
     import json
     means = json.load(open(os.path.join(_basepath, "week_means.json")))

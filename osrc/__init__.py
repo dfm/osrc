@@ -15,7 +15,7 @@ import logging
 import requests
 import numpy as np
 
-# from osrc.build_index import get_neighbors
+from osrc.build_index import get_neighbors
 
 
 app = flask.Flask(__name__)
@@ -322,7 +322,7 @@ def get_stats(username):
             pass
 
     # Get neighbors.
-    neighbors = []  # get_neighbors(ghuser)
+    neighbors = get_neighbors(ghuser)
 
     # Figure out the representative weekly schedule.
     hacker_type = "a pretty inconsistent hacker"
@@ -544,8 +544,8 @@ def get_stats(username):
                       "expert").format(firstname, langs[0][0])
             ls = [float(l[1]) for l in langs]
             if (ls[0] - ls[1]) / sum(ls) < 0.25:
-                sctxt += (" with a surprisingly broad knowledge of <strong>{0}</strong> "
-                          "as well").format(langs[1][0])
+                sctxt += (" with a surprisingly broad knowledge of"
+                          "<strong>{0}</strong> as well").format(langs[1][0])
             sctxt += ". "
             sctxt += ("The following chart shows the number of contributions "
                       "made by {0} to repositories where the main "
