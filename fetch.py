@@ -53,6 +53,6 @@ def fetch(year, month, day, n):
 if __name__ == "__main__":
     for year, month in product(range(2011, 2014), range(1, 13)):
         jobs = [gevent.spawn(fetch, year, month, day, n)
-                for n, day in product(range(1, 32), range(24))]
+                for day, n in product(range(1, 32), range(24))]
         gevent.joinall(jobs)
         print("Finished {0}-{1}".format(year, month))
