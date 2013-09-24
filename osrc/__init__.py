@@ -108,6 +108,9 @@ language_users = {
     "JavaScript": "JavaScripter",
     "C++": "corporate slave",
     "R": "useR",
+    "Lisp": "AI freak",
+    "Sheel": "Scripter",
+    "Nu": "Nubist",
 }
 
 
