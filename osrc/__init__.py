@@ -598,8 +598,10 @@ def compare(username, other):
     """
     user1, user2 = username.lower(), other.lower()
 
-    if user1 == user2
-        return "Comparing someone to themself does not provide any statistic except that 0 equals 0, which is nontrivial at best."
+    if user1 == user2:
+        return ("Comparing someone to themself does not provide any "
+                "statistic except that 0 equals 0, which is nontrivial at "
+                "best.")
 
     pipe = flask.g.redis.pipeline()
 
