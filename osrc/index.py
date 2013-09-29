@@ -8,6 +8,7 @@ __all__ = ["rebuild_index", "get_neighbors"]
 
 import os
 import h5py
+import flask
 import pyflann
 import numpy as np
 
@@ -17,8 +18,8 @@ _basepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 evttypes = [l.strip() for l in open(os.path.join(_basepath, "evttypes.txt"))]
 langs = [l.strip() for l in open(os.path.join(_basepath, "languages.txt"))]
 
-index_filename = os.path.join(_basepath, "index.h5")
-points_filename = os.path.join(_basepath, "points.h5")
+index_filename = "index.h5"
+points_filename = "points.h5"
 
 nevts = len(evttypes)
 nlangs = len(langs)
@@ -96,6 +97,10 @@ def parse_vector(results):
     return points
 
 
+def _h5_filename(fn):
+    return os.path.join(flask.current_app.config.get("INDEX_DIR", ""), fn)
+
+
 def get_neighbors(name, num=5):
     """
     Find the K nearest neighbors to a user in "behavior space".
@@ -108,13 +113,13 @@ def get_neighbors(name, num=5):
     vector = parse_vector(get_vector(name))
 
     # Load the points and user names.
-    with h5py.File(points_filename, "r") as f:
+    with h5py.File(_h5_filename(points_filename), "r") as f:
         points = f["points"][...]
         usernames = f["names"][...]
 
     # Load the index.
     flann = pyflann.FLANN()
-    flann.load_index(index_filename, points)
+    flann.load_index(_h5_filename(index_filename), points)
 
     # Find the neighbors.
     inds, dists = flann.nn_index(vector, num_neighbors=num+1)
@@ -136,7 +141,7 @@ def rebuild_index():
 
     """
     pipe = get_pipeline()
-    usernames = pipe.zrevrange(format_key("user"), 500, 50500).execute()
+    usernames = pipe.zrevrange(format_key("user"), 500, 50500).execute()[0]
 
     for user in usernames:
         get_vector(user, pipe=pipe)
@@ -148,7 +153,7 @@ def rebuild_index():
 
     flann = pyflann.FLANN()
     flann.build_index(points)
-    flann.save_index(index_filename)
-    with h5py.File(points_filename, "w") as f:
+    flann.save_index(_h5_filename(index_filename))
+    with h5py.File(_h5_filename(points_filename), "w") as f:
         f["points"] = points
         f["names"] = usernames

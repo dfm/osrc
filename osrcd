@@ -100,7 +100,7 @@ def process(filename):
     strt = time.time()
     with gzip.GzipFile(filename) as f:
         # One event per line.
-        events = [line.decode("utf-8") for line in f]
+        events = [line.decode("utf-8", errors="ignore") for line in f]
 
         # One event per line.
         for n, line in enumerate(events):
