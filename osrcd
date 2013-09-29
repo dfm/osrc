@@ -40,6 +40,7 @@ archive_url = ("http://data.githubarchive.org/"
 # Shared database connection.
 redis_pool = redis.ConnectionPool(port=int(os.environ.get("OSRC_REDIS_PORT",
                                                           6380)))
+redis_prefix = os.environ.get("OSRC_REDIS_PREFIX", "osrc")
 
 # Regular expression for parsing filename formats.
 date_re = re.compile(r"([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]+)\.json.gz")
@@ -80,6 +81,10 @@ def fetch(year, month, day):
     """
     jobs = [gevent.spawn(_fetch_one, year, month, day, n) for n in range(24)]
     gevent.joinall(jobs)
+
+
+def _format(key):
+    return "{0}:{1}".format(redis_prefix, key)
 
 
 def process(filename):
@@ -134,25 +139,30 @@ def process(filename):
                                        "PushEvent"]
 
             # Increment the global sum histograms.
-            pipe.incr("gh:total", nevents)
-            pipe.hincrby("gh:day", weekday, nevents)
-            pipe.hincrby("gh:hour", hour, nevents)
-            pipe.zincrby("gh:user", key, nevents)
-            pipe.zincrby("gh:event", evttype, nevents)
+            pipe.incr(_format("total"), nevents)
+            pipe.hincrby(_format("day"), weekday, nevents)
+            pipe.hincrby(_format("hour"), hour, nevents)
+            pipe.zincrby(_format("user"), key, nevents)
+            pipe.zincrby(_format("event"), evttype, nevents)
 
             # Event histograms.
-            pipe.hincrby("gh:event:{0}:day".format(evttype), weekday, nevents)
-            pipe.hincrby("gh:event:{0}:hour".format(evttype), hour, nevents)
+            pipe.hincrby(_format("event:{0}:day".format(evttype)), weekday,
+                         nevents)
+            pipe.hincrby(_format("event:{0}:hour".format(evttype)), hour,
+                         nevents)
 
             # User schedule histograms.
-            pipe.hincrby("gh:user:{0}:day".format(key), weekday, nevents)
-            pipe.hincrby("gh:user:{0}:hour".format(key), hour, nevents)
+            pipe.hincrby(_format("user:{0}:day".format(key)), weekday, nevents)
+            pipe.hincrby(_format("user:{0}:hour".format(key)), hour, nevents)
 
             # User event type histogram.
-            pipe.zincrby("gh:user:{0}:event".format(key), evttype, nevents)
-            pipe.hincrby("gh:user:{0}:event:{1}:day".format(key, evttype),
+            pipe.zincrby(_format("user:{0}:event".format(key)), evttype,
+                         nevents)
+            pipe.hincrby(_format("user:{0}:event:{1}:day".format(key,
+                                                                 evttype)),
                          weekday, nevents)
-            pipe.hincrby("gh:user:{0}:event:{1}:hour".format(key, evttype),
+            pipe.hincrby(_format("user:{0}:event:{1}:hour".format(key,
+                                                                  evttype)),
                          hour, nevents)
 
             # Parse the name and owner of the affected repository.
@@ -161,51 +171,55 @@ def process(filename):
                                 repo.get("organization"))
             if owner and name:
                 repo_name = "{0}/{1}".format(owner, name)
-                pipe.zincrby("gh:repo", repo_name, nevents)
+                pipe.zincrby(_format("repo"), repo_name, nevents)
 
                 # Is the user contributing to their own project.
                 okey = owner.lower()
                 if okey == key:
-                    pipe.zincrby("gh:user:{0}:repo".format(key),
+                    pipe.zincrby(_format("user:{0}:repo".format(key)),
                                  repo_name, nevents)
 
                 # If not, save all sorts of goodies.
                 else:
                     if contribution:
-                        pipe.zincrby("gh:contribution", repo_name, nevents)
-                        pipe.zincrby("gh:user:{0}:contribution".format(key),
+                        pipe.zincrby(_format("contribution"), repo_name,
+                                     nevents)
+                        pipe.zincrby(_format("user:{0}:contribution"
+                                             .format(key)),
                                      repo_name, nevents)
 
                     if org is None:
                         # how connected are these two users?
-                        pipe.zincrby("gh:user:{0}:connection".format(key),
+                        pipe.zincrby(_format("user:{0}:connection"
+                                             .format(key)),
                                      owner, nevents)
-                        pipe.zincrby("gh:user:{0}:connection".format(okey),
+                        pipe.zincrby(_format("user:{0}:connection"
+                                             .format(okey)),
                                      actor, nevents)
 
                         # update the global count of connections.
-                        pipe.incr("gh:connection", nevents)
-                        pipe.zincrby("gh:connection:user", key, nevents)
-                        pipe.zincrby("gh:connection:user", okey, nevents)
+                        pipe.incr(_format("connection"), nevents)
+                        pipe.zincrby(_format("connection:user"), key, nevents)
+                        pipe.zincrby(_format("connection:user"), okey, nevents)
 
                 # Do we know what the language of the repository is?
                 language = repo.get("language")
                 if language:
                     # Which are the most popular languages?
-                    pipe.zincrby("gh:lang", language, nevents)
+                    pipe.zincrby(_format("lang"), language, nevents)
 
                     # Total number of pushes.
                     if evttype == "PushEvent":
-                        pipe.zincrby("gh:pushes:lang", language, nevents)
+                        pipe.zincrby(_format("pushes:lang"), language, nevents)
 
                     # What are a user's favorite languages?
                     if contribution:
-                        pipe.zincrby("gh:user:{0}:lang".format(key), language,
-                                     nevents)
+                        pipe.zincrby(_format("user:{0}:lang".format(key)),
+                                     language, nevents)
 
                     # Who are the most important users of a language?
                     if contribution:
-                        pipe.zincrby("gh:lang:{0}:user".format(language),
+                        pipe.zincrby(_format("lang:{0}:user".format(language)),
                                      key, nevents)
 
         pipe.execute()
