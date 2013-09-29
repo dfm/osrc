@@ -16,11 +16,14 @@ import glob
 import gzip
 import json
 import time
-import redis
 import shutil
 import requests
 from datetime import date, timedelta
 from tempfile import NamedTemporaryFile
+
+from osrc.index import rebuild_index
+from osrc.database import get_pipeline
+from osrc.database import format_key as _format
 
 # Make sure that the directory for the local caching of the data exists.
 local_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -36,11 +39,6 @@ except os.error:
 # The URL template for the GitHub Archive.
 archive_url = ("http://data.githubarchive.org/"
                "{year}-{month:02d}-{day:02d}-{n}.json.gz")
-
-# Shared database connection.
-redis_pool = redis.ConnectionPool(port=int(os.environ.get("OSRC_REDIS_PORT",
-                                                          6380)))
-redis_prefix = os.environ.get("OSRC_REDIS_PREFIX", "osrc")
 
 # Regular expression for parsing filename formats.
 date_re = re.compile(r"([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]+)\.json.gz")
@@ -83,10 +81,6 @@ def fetch(year, month, day):
     gevent.joinall(jobs)
 
 
-def _format(key):
-    return "{0}:{1}".format(redis_prefix, key)
-
-
 def process(filename):
     """
     Process a single gzipped archive file and push the results to the database.
@@ -100,8 +94,7 @@ def process(filename):
     weekday = date(year=year, month=month, day=day).strftime("%w")
 
     # Set up a redis pipeline.
-    r = redis.Redis(connection_pool=redis_pool)
-    pipe = r.pipeline(transaction=False)
+    pipe = get_pipeline()
 
     # Unzip and load the file.
     strt = time.time()
@@ -229,6 +222,9 @@ def process(filename):
 
 
 def fetch_and_process(year, month, day):
+    print("Processing data for {0:04d}-{1:02d}-{2:02d}".format(year,
+                                                               month,
+                                                               day))
     fetch(year, month, day)
     kwargs = {"year": year, "month": month, "day": day, "n": "*"}
     filenames = glob.glob(fn_template.format(**kwargs))
@@ -239,5 +235,20 @@ def fetch_and_process(year, month, day):
 
 
 if __name__ == "__main__":
-    yesterday = date.today() - timedelta(1)
-    fetch_and_process(yesterday.year, yesterday.month, yesterday.day)
+    import sys
+
+    today = date.today()
+
+    if "--since" in sys.argv:
+        since = sys.argv[sys.argv.index("--since")+1]
+        day = date(**dict(zip(["year", "month", "day"],
+                              map(int, since.split("-")))))
+        while day < today:
+            fetch_and_process(day.year, day.month, day.day)
+            day += timedelta(1)
+
+    else:
+        yesterday = today - timedelta(1)
+        fetch_and_process(yesterday.year, yesterday.month, yesterday.day)
+
+    rebuild_index()

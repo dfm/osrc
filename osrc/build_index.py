@@ -26,7 +26,7 @@ nlangs = len(langs)
 nvector = 1 + 7 + nevts + 1 + 1 + 1 + 1 + nlangs + 1
 
 
-def build_index():
+def build_index(port=6379):
     r = redis.Redis(port=6380)
 
     usernames = r.zrevrange("gh:user", 500, 50500)
