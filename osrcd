@@ -166,34 +166,11 @@ def process(filename):
                 repo_name = "{0}/{1}".format(owner, name)
                 pipe.zincrby(_format("repo"), repo_name, nevents)
 
-                # Is the user contributing to their own project.
-                okey = owner.lower()
-                if okey == key:
-                    pipe.zincrby(_format("user:{0}:repo".format(key)),
-                                 repo_name, nevents)
-
-                # If not, save all sorts of goodies.
-                else:
-                    if contribution:
-                        pipe.zincrby(_format("contribution"), repo_name,
-                                     nevents)
-                        pipe.zincrby(_format("user:{0}:contribution"
-                                             .format(key)),
-                                     repo_name, nevents)
-
-                    if org is None:
-                        # how connected are these two users?
-                        pipe.zincrby(_format("user:{0}:connection"
-                                             .format(key)),
-                                     owner, nevents)
-                        pipe.zincrby(_format("user:{0}:connection"
-                                             .format(okey)),
-                                     actor, nevents)
-
-                        # update the global count of connections.
-                        pipe.incr(_format("connection"), nevents)
-                        pipe.zincrby(_format("connection:user"), key, nevents)
-                        pipe.zincrby(_format("connection:user"), okey, nevents)
+                # Save the social graph.
+                pipe.zincrby(_format("social:user:{0}".format(key)),
+                             repo_name, nevents)
+                pipe.zincrby(_format("social:repo:{0}".format(repo_name)),
+                             key, nevents)
 
                 # Do we know what the language of the repository is?
                 language = repo.get("language")

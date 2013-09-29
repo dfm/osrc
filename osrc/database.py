@@ -17,7 +17,7 @@ def get_pipeline():
         port = int(flask.current_app.config["REDIS_PORT"])
         redis_pool = redis.ConnectionPool(port=port)
     r = redis.Redis(connection_pool=redis_pool)
-    return r.pipeline(transaction=False)
+    return r.pipeline()
 
 
 def format_key(key):

@@ -69,3 +69,57 @@ def get_user_info(username):
         "gravatar": gravatar if gravatar is not None else "none",
         "timezone": int(timezone) if timezone is not None else None,
     }
+
+
+def make_histogram(data, size, offset=0):
+    result = [0] * size
+    for k, v in data:
+        val = float(v)
+        i = int(k) + offset
+        while (i < 0):
+            i += size
+        result[i % size] = val
+    return result
+
+
+def get_usage_stats(username):
+    user = username.lower()
+    pipe = get_pipeline()
+
+    # Get the total number of events performed by this user.
+    pipe.zscore(format_key("user"), user)
+
+    # The timezone estimate.
+    pipe.get(format_key("user:{0}:tz".format(user)))
+
+    # Get the top <= 5 most common events.
+    pipe.zrevrangebyscore(format_key("user:{0}:event".format(user)),
+                          "+inf", 0, 0, 5, withscores=True)
+
+    # The average daily and weekly schedules.
+    pipe.hgetall(format_key("user:{0}:hour".format(user)))
+    pipe.hgetall(format_key("user:{0}:day".format(user)))
+
+    # The language stats.
+    pipe.zrevrange(format_key("user:{0}:lang".format(user)), 0, -1,
+                   withscores=True)
+
+    # Parse the results.
+    results = pipe.execute()
+    total_events = int(results[0]) if results[0] is not None else 0
+    if not total_events:
+        return None
+    timezone = results[1]
+    offset = int(timezone) + 8 if timezone is not None else 0
+    event_counts = results[2]
+    daily_histogram = make_histogram(results[3].items(), 24, offset)
+    weekly_histogram = make_histogram(results[4].items(), 7)
+    languages = results[5]
+
+    return {
+        "total_events": total_events,
+        "event_counts": event_counts,
+        "daily_histogram": daily_histogram,
+        "weekly_histogram": weekly_histogram,
+        "languages": languages,
+    }
