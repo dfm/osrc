@@ -4,7 +4,7 @@
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 
-__all__ = ["redis_pool", "format_key"]
+__all__ = ["get_pipeline", "format_key"]
 
 import flask
 import redis

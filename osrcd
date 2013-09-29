@@ -182,10 +182,8 @@ def process(filename):
                     if evttype == "PushEvent":
                         pipe.zincrby(_format("pushes:lang"), language, nevents)
 
-                    # What are a user's favorite languages?
-                    if contribution:
-                        pipe.zincrby(_format("user:{0}:lang".format(key)),
-                                     language, nevents)
+                    pipe.zincrby(_format("user:{0}:lang".format(key)),
+                                 language, nevents)
 
                     # Who are the most important users of a language?
                     if contribution:
@@ -212,20 +210,32 @@ def fetch_and_process(year, month, day):
 
 
 if __name__ == "__main__":
-    import sys
+    import argparse
+    from osrc import create_app
 
     today = date.today()
 
-    if "--since" in sys.argv:
-        since = sys.argv[sys.argv.index("--since")+1]
-        day = date(**dict(zip(["year", "month", "day"],
-                              map(int, since.split("-")))))
-        while day < today:
-            fetch_and_process(day.year, day.month, day.day)
-            day += timedelta(1)
+    # Parse the command line arguments.
+    parser = argparse.ArgumentParser(description="Monitor GitHub activity.")
+    parser.add_argument("--since", default=None, help="The starting date.")
+    parser.add_argument("--config", default=None,
+                        help="The path to the local configuration file.")
+    args = parser.parse_args()
 
-    else:
-        yesterday = today - timedelta(1)
-        fetch_and_process(yesterday.year, yesterday.month, yesterday.day)
+    # Initialize a flask app.
+    app = create_app(args.config)
 
-    rebuild_index()
+    # Set up the app in a request context.
+    with app.test_request_context():
+        if args.since is not None:
+            day = date(**dict(zip(["year", "month", "day"],
+                                  map(int, args.since.split("-")))))
+            while day < today:
+                fetch_and_process(day.year, day.month, day.day)
+                day += timedelta(1)
+
+        else:
+            yesterday = today - timedelta(1)
+            fetch_and_process(yesterday.year, yesterday.month, yesterday.day)
+
+        rebuild_index()
