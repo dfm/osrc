@@ -137,9 +137,15 @@ def get_neighbors(name, num=5):
     else:
         inds = inds[:-1]
 
-    usernames = usernames[inds]
+    usernames = list(usernames[inds])
 
-    return list(usernames)
+    # Get the real names if they exist.
+    pipe = get_pipeline()
+    [pipe.get(format_key("user:{0}:name".format(u))) for u in usernames]
+    names = pipe.execute()
+
+    return [{"username": u, "name": n if n is not None else u}
+            for u, n in zip(usernames, names)]
 
 
 def rebuild_index():

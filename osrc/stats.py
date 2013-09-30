@@ -121,10 +121,13 @@ def get_usage_stats(username):
     weekly_histogram = make_histogram(results[4].items(), 7)
     languages = results[5]
 
+    # Parse the languages into a nicer form.
+    languages = [{"language": l, "count": int(c)} for l, c in languages]
+
     return {
         "total_events": total_events,
         "event_counts": event_counts,
-        "daily_histogram": daily_histogram,
-        "weekly_histogram": weekly_histogram,
+        "daily_histogram": map(int, daily_histogram),
+        "weekly_histogram": map(int, weekly_histogram),
         "languages": languages,
     }

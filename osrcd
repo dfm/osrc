@@ -17,6 +17,7 @@ import gzip
 import json
 import time
 import shutil
+import logging
 import requests
 from datetime import date, timedelta
 from tempfile import NamedTemporaryFile
@@ -110,8 +111,8 @@ def process(filename):
             try:
                 event = json.loads(line)
             except:
-                print("Failed on line {0} of {1}-{2:02d}-{3:02d}-{4}"
-                      .format(n, year, month, day, hour))
+                logging.warn("Failed on line {0} of {1}-{2:02d}-{3:02d}-{4}"
+                             .format(n, year, month, day, hour))
                 continue
 
             # Get the user involved and skip if there isn't one.
@@ -194,20 +195,20 @@ def process(filename):
 
         pipe.execute()
 
-        print("Processed {0} events in {1} [{2:.2f} seconds]"
-              .format(count, filename, time.time() - strt))
+        logging.info("Processed {0} events in {1} [{2:.2f} seconds]"
+                     .format(count, filename, time.time() - strt))
 
 
 def fetch_and_process(year, month, day):
-    print("Processing data for {0:04d}-{1:02d}-{2:02d}".format(year,
-                                                               month,
-                                                               day))
+    logging.info("Processing data for {0:04d}-{1:02d}-{2:02d}"
+                 .format(year, month, day))
     fetch(year, month, day)
     kwargs = {"year": year, "month": month, "day": day, "n": "*"}
     filenames = glob.glob(fn_template.format(**kwargs))
     if len(filenames) != 24:
-        print("Missing {0} archive files for date {1:04d}-{2:02d}-{3:02d}"
-              .format(24 - len(filenames), year, month, day))
+        logging.warn("Missing {0} archive files for date "
+                     "{1:04d}-{2:02d}-{3:02d}"
+                     .format(24 - len(filenames), year, month, day))
     map(process, filenames)
 
 
@@ -222,7 +223,15 @@ if __name__ == "__main__":
     parser.add_argument("--since", default=None, help="The starting date.")
     parser.add_argument("--config", default=None,
                         help="The path to the local configuration file.")
+    parser.add_argument("--log", default=None,
+                        help="The path to the log file.")
     args = parser.parse_args()
+
+    largs = dict(level=logging.INFO,
+                 format="[%(asctime)s] %(name)s:%(levelname)s:%(message)s")
+    if args.log is not None:
+        largs["filename"] = args.log
+    logging.basicConfig(**largs)
 
     # Initialize a flask app.
     app = create_app(args.config)
@@ -240,4 +249,6 @@ if __name__ == "__main__":
             yesterday = today - timedelta(1)
             fetch_and_process(yesterday.year, yesterday.month, yesterday.day)
 
+        logging.info("Rebuilding index.")
         rebuild_index()
+        logging.info("Finished.")

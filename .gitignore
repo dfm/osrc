@@ -10,3 +10,5 @@ dist
 backup.sh
 *.h5
 ads.html
+*.sh
+*.log
