@@ -65,7 +65,7 @@ def get_user_info(username):
         pipe.execute()
 
     return {
-        "name": name.decode("utf-8") if name is not None else username,
+        "name": name if name is not None else username,
         "gravatar": gravatar if gravatar is not None else "none",
         "timezone": int(timezone) if timezone is not None else None,
     }
