@@ -26,4 +26,4 @@ def stats_view(username):
         return flask.jsonify(message="Not enough information for {0}."
                              .format(username)), 404
 
-    return flask.jsonify(dict(user_info, **usage))
+    return flask.jsonify(dict(user_info, usage=usage))

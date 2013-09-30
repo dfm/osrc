@@ -98,9 +98,11 @@ def process(filename):
 
     # Unzip and load the file.
     strt = time.time()
+    count = 0
     with gzip.GzipFile(filename) as f:
         # One event per line.
         events = [line.decode("utf-8", errors="ignore") for line in f]
+        count = len(events)
 
         # One event per line.
         for n, line in enumerate(events):
@@ -193,7 +195,7 @@ def process(filename):
         pipe.execute()
 
         print("Processed {0} events in {1} [{2:.2f} seconds]"
-              .format(n, filename, time.time() - strt))
+              .format(count, filename, time.time() - strt))
 
 
 def fetch_and_process(year, month, day):

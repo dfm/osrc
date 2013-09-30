@@ -9,6 +9,7 @@ __all__ = ["rebuild_index", "get_neighbors"]
 import os
 import h5py
 import flask
+import shutil
 import pyflann
 import numpy as np
 
@@ -153,7 +154,19 @@ def rebuild_index():
 
     flann = pyflann.FLANN()
     flann.build_index(points)
-    flann.save_index(_h5_filename(index_filename))
-    with h5py.File(_h5_filename(points_filename), "w") as f:
+
+    # Save the index.
+    fn1 = _h5_filename(index_filename)
+    tmp1 = fn1 + ".tmp"
+    flann.save_index(tmp1)
+
+    # Save the index coordinates.
+    fn2 = _h5_filename(points_filename)
+    tmp2 = fn2 + ".tmp"
+    with h5py.File(tmp2, "w") as f:
         f["points"] = points
         f["names"] = usernames
+
+    # Atomically move the index files into place.
+    shutil.move(tmp1, fn1)
+    shutil.move(tmp2, fn2)
