@@ -9,6 +9,7 @@ __all__ = ["get_user_info"]
 import flask
 import requests
 
+from .index import get_neighbors
 from .timezone import estimate_timezone
 from .database import get_pipeline, format_key
 
@@ -64,10 +65,14 @@ def get_user_info(username):
             pipe.set(format_key("user:{0}:tz".format(user)), timezone)
         pipe.execute()
 
+    # Get the nearest neighbors in behavior space.
+    similar_users = get_neighbors(user)
+
     return {
         "name": name if name is not None else username,
         "gravatar": gravatar if gravatar is not None else "none",
         "timezone": int(timezone) if timezone is not None else None,
+        "similar_users": similar_users,
     }
 
 

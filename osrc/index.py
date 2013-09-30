@@ -111,7 +111,14 @@ def get_neighbors(name, num=5):
 
     """
     # Get the vector for this user.
-    vector = parse_vector(get_vector(name))
+    vector = get_vector(name)
+
+    # If any of the components are None, bail.
+    if any([v is None for v in vector]):
+        return []
+
+    # Parse the vector.
+    vector = parse_vector(vector)
 
     # Load the points and user names.
     with h5py.File(_h5_filename(points_filename), "r") as f:
