@@ -11,7 +11,7 @@ import requests
 
 from .index import get_neighbors
 from .timezone import estimate_timezone
-from .database import get_pipeline, format_key
+from .database import get_connection, get_pipeline, format_key
 
 ghapi_url = "https://api.github.com/users/{username}"
 
@@ -65,14 +65,55 @@ def get_user_info(username):
             pipe.set(format_key("user:{0}:tz".format(user)), timezone)
         pipe.execute()
 
-    # Get the nearest neighbors in behavior space.
-    similar_users = get_neighbors(user)
-
     return {
+        "username": username,
         "name": name if name is not None else username,
         "gravatar": gravatar if gravatar is not None else "none",
         "timezone": int(timezone) if timezone is not None else None,
-        "similar_users": similar_users,
+    }
+
+
+def get_social_stats(username):
+    r = get_connection()
+    pipe = r.pipeline()
+    user = username.lower()
+
+    # Find the connected users.
+    connection_key = format_key("social:connection:{0}".format(user))
+    connected_users = r.zrevrange(connection_key, 0, 5)
+    if connected_users is None:
+        script = """
+local repos = redis.call("zrevrange", KEYS[1], 0, 10)
+for i, repo in ipairs(repos) do
+    local users = redis.call("zrevrange", "{0}" .. repo, 0, 5)
+    for j, user in ipairs(users) do
+        if not user == ARGV[1] then
+            redis.call("zincrby", KEYS[2], 1, user)
+        end
+    end
+end
+redis.call("expire", KEYS[2], 172800)
+return redis.call("zrevrange", KEYS[2], 0, 5)
+        """.format(format_key("social:repo:"))
+        keys = [format_key("social:user:{0}".format(user)),
+                connection_key]
+        connection = r.register_script(script)
+        connected_users = connection(keys=keys, args=[user])
+
+    # Get the nearest neighbors in behavior space.
+    similar_users = get_neighbors(user)
+    [pipe.get(format_key("user:{0}:name".format(u)))
+     for u in connected_users + similar_users]
+    names = pipe.execute()
+
+    # Parse all the users.
+    users = [{"username": u, "name": n if n is not None else u}
+             for u, n in zip(connected_users+similar_users, names)]
+
+    nc = len(connected_users)
+    return {
+        "connected_users": users[:nc],
+        "similar_users": users[nc:],
     }
 
 

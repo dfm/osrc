@@ -15,7 +15,7 @@ def index():
     return "HELLO"
 
 
-@frontend.route("/<username>/stats")
+@frontend.route("/<username>.json")
 def stats_view(username):
     # Get the user information.
     user_info = stats.get_user_info(username)
@@ -25,5 +25,9 @@ def stats_view(username):
     if usage is None:
         return flask.jsonify(message="Not enough information for {0}."
                              .format(username)), 404
+
+    # Get the social stats.
+    social_stats = stats.get_social_stats(username)
+    user_info = dict(user_info, **social_stats)
 
     return flask.jsonify(dict(user_info, usage=usage))
