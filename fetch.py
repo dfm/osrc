@@ -27,8 +27,7 @@ except os.error:
 url = "http://data.githubarchive.org/{year}-{month:02d}-{day:02d}-{n}.json.gz"
 
 
-def fetch(year, month, day, n):
-    kwargs = {"year": year, "month": month, "day": day, "n": n}
+def fetch(**kwargs):
     local_fn = filename.format(**kwargs)
 
     # Skip if the file exists.
@@ -52,7 +51,11 @@ def fetch(year, month, day, n):
 
 if __name__ == "__main__":
     for year, month in product(range(2011, 2014), range(1, 13)):
-        jobs = [gevent.spawn(fetch, year, month, day, n)
-                for n, day in product(range(1, 32), range(24))]
+        jobs = []
+        for n, day in product(range(1, 32), range(24)):
+            kwargs = {"year": year, "month": month, "day": day, "n": n}
+            local_fn = filename.format(**kwargs)
+            if not os.path.exists(local_fn):
+                jobs.append(gevent.spawn(fetch, **kwargs))
         gevent.joinall(jobs)
         print("Finished {0}-{1}".format(year, month))
