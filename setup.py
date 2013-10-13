@@ -6,6 +6,6 @@ from setuptools import setup
 setup(
     name="osrc",
     packages=["osrc"],
-    package_data={"osrc": ["templates/*", "static/*"]},
+    package_data={"osrc": ["*.json", "templates/*", "static/*"]},
     include_package_data=True,
 )
