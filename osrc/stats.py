@@ -158,8 +158,16 @@ def get_usage_stats(username):
     weekly_histogram = make_histogram(results[4].items(), 7)
     languages = results[5]
 
-    # Parse the languages into a nicer form.
-    languages = [{"language": l, "count": int(c)} for l, c in languages]
+    # Parse the languages into a nicer form and get quantiles.
+    [(pipe.zcount(format_key("lang:{0}:user".format(l)), 50, "+inf"),
+      pipe.zrevrank(format_key("lang:{0}:user".format(l)), user))
+     for l, c in languages]
+    quants = pipe.execute()
+    languages = [{"language": l,
+                  "quantile": max([100, int(100 * tot / pos) + 1]),
+                  "count": int(c)}
+                 for (l, c), tot, pos in zip(languages, quants[::2],
+                                             quants[1::2])]
 
     # Generate some stats for the event specific event types.
     [(pipe.hgetall(format_key("user:{0}:event:{1}:day".format(user, e))),
