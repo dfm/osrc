@@ -1,0 +1,247 @@
+@import url(http://fonts.googleapis.com/css?family=Lato:100,300,400,700,900,300italic);
+
+html {
+    background: white;
+}
+
+body {
+    font-family: "Lato", "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 16pt;
+    line-height: 2;
+    color: #222;
+    padding-bottom: 50px;
+}
+
+a {
+    color: #16A085;
+}
+
+a:hover {
+    color: #1ABC9C;
+}
+
+pre, code {
+    font-family: Menlo, Monaco, "Courier New", monospace;
+    font-size: 14px;
+    color: #222;
+    background: #dededf;
+    padding: 3px 12px;
+    border-radius: 2px;
+}
+
+code {
+    margin: 0 5px;
+    padding: 0;
+    background: none;
+}
+
+.header, .container {
+    width: 800px;
+    margin: 0 auto;
+}
+
+.container h1, .header-title {
+    text-transform: uppercase;
+    font-weight: 300;
+    font-size: 14pt;
+    line-height: 1;
+    padding: 30px 0;
+    color: #7F8C8D;
+}
+
+.header {
+    border-bottom: 1px solid #BDC3C7;
+    margin-bottom: 35px;
+}
+
+.container h1 {
+    text-align: center;
+    border-bottom: 1px solid #BDC3C7;
+    margin-bottom: 35px;
+}
+
+.header-title {
+    display: block;
+    float: left;
+    margin: 0;
+}
+
+.header:after {
+    content: ".";
+    display: block;
+    clear: both;
+    visibility: hidden;
+    line-height: 0;
+    height: 0;
+}
+
+#fusion_ad {
+    float: right;
+    width: 300px;
+    font-size: 13px;
+    line-height: 1.1;
+    margin-top: 6px;
+    text-align: right;
+}
+
+.fusionimg {
+    display: block;
+    float: right;
+    margin-left: 5px;
+}
+
+.fusiontext {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.container h2 {
+    font-weight: 400;
+    font-size: 21pt;
+    line-height: 1;
+    padding: 20px 0 0;
+    margin: 0;
+    font-style: italic;
+}
+
+.header a {
+    color: #7F8C8D;
+    text-decoration: none;
+}
+
+.header a:hover {
+    color: #333;
+}
+
+.profile-badge {
+    line-height: 1;
+    text-align: center;
+}
+
+.avatar {
+    float: left;
+    display: inline-block;
+    border: 1px solid #333;
+    border-radius: 3px;
+}
+
+.profile-name {
+    float: left;
+    font-weight: 100;
+    display: inline-block;
+    font-size: 50px;
+    line-height: 50px;
+    margin-left: 20px;
+    color: #333;
+}
+
+a .profile-name {
+    color: #333;
+    text-decoration: none;
+}
+
+a:hover .profile-name {
+    color: #333;
+}
+
+.clearfix:after {
+    content: ".";
+    display: block;
+    clearfix: both;
+    visibility: hidden;
+    line-height: 0;
+    height: 0;
+}
+
+.clearfix {
+    display: inline-block;
+}
+
+p, li {
+    font-weight: 300;
+}
+
+.hist-block {
+    text-align: center;
+}
+
+.hist {
+    display: inline-block;
+    margin: 10px 20px 0;
+}
+
+rect {
+    fill-opacity: .8;
+}
+
+text {
+    font-family: "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 11px;
+    color: #222;
+}
+
+line.axis {
+    stroke: #222;
+    stroke-width: 1px;
+}
+
+.evttype {
+    font-weight: 600;
+}
+
+#week-rep {
+    font-family: "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 13px;
+    color: #222;
+}
+
+input {
+    font-family: "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 18pt;
+    font-weight: 300;
+    color: #222;
+    width: 600px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+input:focus {
+    border-color: #1ABC9C;
+    outline: 0;
+    outline: thin dotted \9; /* IE6-9 */
+}
+
+.splash-text {
+    font-size: 18pt;
+    font-weight: 300;
+    width: 600px;
+    line-height: 1.4;
+    margin: 20px auto;
+}
+
+.front-splash {
+    text-align: center;
+    margin: 70px 0;
+}
+
+#footer {
+    border-top: 1px solid #BDC3C7;
+    background: #ddd;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    padding: 15px 0;
+    font-size: 12px;
+    font-style: italic;
+    color: #222;
+}
+
+#error {
+    display: none;
+    font-size: 18pt;
+    font-weight: 300;
+    line-height: 1.4;
+    text-align: center;
+    font-style: italic;
+}

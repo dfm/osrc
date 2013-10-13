@@ -41,7 +41,18 @@ def user_view(username):
     with flask.current_app.open_resource("adjectives.json") as f:
         adjectives = json.load(f)
 
-    return flask.render_template("user.html", adjectives=adjectives, **stats)
+    # Load the list of event action descriptions.
+    with flask.current_app.open_resource("event_actions.json") as f:
+        event_actions = json.load(f)
+
+    # Sort out the user's first name.
+    firstname = stats["name"].split()[0]
+
+    return flask.render_template("user.html",
+                                 adjectives=adjectives,
+                                 event_actions=event_actions,
+                                 firstname=firstname,
+                                 **stats)
 
 
 @frontend.route("/<username>.json")
