@@ -164,7 +164,9 @@ def get_usage_stats(username):
      for l, c in languages]
     quants = pipe.execute()
     languages = [{"language": l,
-                  "quantile": max([100, int(100 * tot / pos) + 1]),
+                  "quantile": (min([100, int(100 * float(pos) / tot) + 1])
+                               if tot is not None and pos is not None
+                               else 100),
                   "count": int(c)}
                  for (l, c), tot, pos in zip(languages, quants[::2],
                                              quants[1::2])]
