@@ -3,6 +3,7 @@
 
 __all__ = ["frontend"]
 
+import json
 import flask
 
 from . import stats
@@ -31,10 +32,16 @@ def get_all_the_stats(username):
 
 @frontend.route("/<username>")
 def user_view(username):
+    # Get the stats.
     stats = get_all_the_stats(username)
     if stats is None:
         return flask.render_template("noinfo.html")
-    return flask.render_template("user.html", **stats)
+
+    # Load the list of adjectives.
+    with flask.current_app.open_resource("adjectives.json") as f:
+        adjectives = json.load(f)
+
+    return flask.render_template("user.html", adjectives=adjectives, **stats)
 
 
 @frontend.route("/<username>.json")
