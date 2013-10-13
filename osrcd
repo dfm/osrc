@@ -21,6 +21,7 @@ import logging
 import requests
 from datetime import date, timedelta
 from tempfile import NamedTemporaryFile
+from multiprocessing import Pool
 
 from osrc.index import rebuild_index
 from osrc.database import get_pipeline
@@ -209,7 +210,8 @@ def fetch_and_process(year, month, day):
         logging.warn("Missing {0} archive files for date "
                      "{1:04d}-{2:02d}-{3:02d}"
                      .format(24 - len(filenames), year, month, day))
-    map(process, filenames)
+    pool = Pool(24)
+    pool.map(process, filenames)
 
 
 if __name__ == "__main__":
