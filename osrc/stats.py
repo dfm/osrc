@@ -73,32 +73,28 @@ def get_user_info(username):
     }
 
 
-def get_social_stats(username):
+def get_social_stats(username, max_connected=5, max_users=50):
     r = get_connection()
     pipe = r.pipeline()
     user = username.lower()
 
     # Find the connected users.
     connection_key = format_key("social:connection:{0}".format(user))
-    connected_users = r.zrevrange(connection_key, 0, 5)
-    if connected_users is None:
-        script = """
-local repos = redis.call("zrevrange", KEYS[1], 0, 10)
-for i, repo in ipairs(repos) do
-    local users = redis.call("zrevrange", "{0}" .. repo, 0, 5)
-    for j, user in ipairs(users) do
-        if not user == ARGV[1] then
-            redis.call("zincrby", KEYS[2], 1, user)
-        end
-    end
-end
-redis.call("expire", KEYS[2], 172800)
-return redis.call("zrevrange", KEYS[2], 0, 5)
-        """.format(format_key("social:repo:"))
-        keys = [format_key("social:user:{0}".format(user)),
-                connection_key]
-        connection = r.register_script(script)
-        connected_users = connection(keys=keys, args=[user])
+    pipe.exists(connection_key)
+    pipe.zrevrange(connection_key, 0, max_connected)
+    flag, connected_users = pipe.execute()
+    if not flag:
+        repos = r.zrevrange(format_key("social:user:{0}".format(user)), 0, -1)
+        [pipe.zrevrange(format_key("social:repo:{0}".format(repo)), 0,
+                        max_users)
+         for repo in repos]
+        users = pipe.execute()
+        [pipe.zincrby(connection_key, u, 1) for l in users for u in l
+         if u != user]
+        # pipe.expire(connection_key, 100)
+        pipe.expire(connection_key, 172800)
+        pipe.zrevrange(connection_key, 0, max_connected)
+        connected_users = pipe.execute()[-1]
 
     # Get the nearest neighbors in behavior space.
     similar_users = get_neighbors(user)
