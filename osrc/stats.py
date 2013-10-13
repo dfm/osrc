@@ -161,9 +161,20 @@ def get_usage_stats(username):
     # Parse the languages into a nicer form.
     languages = [{"language": l, "count": int(c)} for l, c in languages]
 
+    # Generate some stats for the event specific event types.
+    [(pipe.hgetall(format_key("user:{0}:event:{1}:day".format(user, e))),
+      pipe.hgetall(format_key("user:{0}:event:{1}:hour".format(user, e))))
+     for e, c in event_counts]
+    results = pipe.execute()
+    events = [{"type": e[0],
+               "total": e[1],
+               "week": make_histogram(w, 7),
+               "day": make_histogram(d, 24, offset)}
+              for e, w, d in zip(event_counts, results[::2], results[1::2])]
+
     return {
         "total_events": total_events,
-        "event_counts": event_counts,
+        "events": events,
         "daily_histogram": map(int, daily_histogram),
         "weekly_histogram": map(int, weekly_histogram),
         "languages": languages,
