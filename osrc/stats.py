@@ -167,15 +167,15 @@ def get_usage_stats(username):
      for e, c in event_counts]
     results = pipe.execute()
     events = [{"type": e[0],
-               "total": e[1],
-               "week": make_histogram(w, 7),
-               "day": make_histogram(d, 24, offset)}
+               "total": int(e[1]),
+               "week": map(int, make_histogram(w.items(), 7)),
+               "day": map(int, make_histogram(d.items(), 24, offset))}
               for e, w, d in zip(event_counts, results[::2], results[1::2])]
 
     return {
-        "total_events": total_events,
+        "total": total_events,
         "events": events,
-        "daily_histogram": map(int, daily_histogram),
-        "weekly_histogram": map(int, weekly_histogram),
+        "day": map(int, daily_histogram),
+        "week": map(int, weekly_histogram),
         "languages": languages,
     }
