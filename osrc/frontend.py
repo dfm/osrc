@@ -12,6 +12,15 @@ from . import stats
 frontend = flask.Blueprint("frontend", __name__)
 
 
+# Custom Jinja2 filters.
+def firstname(value):
+    return value.split()[0]
+
+
+def compare(user1, user2):
+    return "more of a pusher"
+
+
 @frontend.route("/")
 def index():
     return "HELLO"
@@ -42,6 +51,10 @@ def user_view(username):
     with flask.current_app.open_resource("adjectives.json") as f:
         adjectives = json.load(f)
 
+    # Load the list of languages.
+    with flask.current_app.open_resource("languages.json") as f:
+        language_list = json.load(f)
+
     # Load the list of event action descriptions.
     with flask.current_app.open_resource("event_actions.json") as f:
         event_actions = json.load(f)
@@ -65,20 +78,18 @@ def user_view(username):
     user_vector = stats["usage"]["week"]
     norm = 1.0 / sqrt(sum([v * v for v in user_vector]))
     user_vector = [v*norm for v in user_vector]
-    for name, vector in week_types.items():
+    for week in week_types:
+        vector = week["vector"]
         norm = 1.0 / sqrt(sum([v * v for v in vector]))
         dot = sum([(v*norm-w) ** 2 for v, w in zip(vector, user_vector)])
         if best_dist < 0 or dot < best_dist:
             best_dist = dot
-            week_type = name
-
-    # Sort out the user's first name.
-    firstname = stats["name"].split()[0]
+            week_type = week["name"]
 
     return flask.render_template("user.html",
                                  adjectives=adjectives,
+                                 language_list=language_list,
                                  event_actions=event_actions,
-                                 firstname=firstname,
                                  week_type=week_type,
                                  best_time=best_time,
                                  **stats)

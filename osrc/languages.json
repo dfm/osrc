@@ -1,0 +1,11 @@
+{
+    "Python": "Pythonista",
+    "Ruby": "Rubyist",
+    "Go": "Gopher",
+    "Java": "Javavore",
+    "C": "sysadmin",
+    "FORTRAN": "old-school hacker",
+    "JavaScript": "JavaScripter",
+    "C++": "corporate slave",
+    "R": "useR"
+}

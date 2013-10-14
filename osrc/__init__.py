@@ -12,6 +12,8 @@ def create_app(config_filename=None):
     if config_filename is not None:
         app.config.from_pyfile(config_filename)
 
-    from .frontend import frontend
+    from .frontend import frontend, firstname, compare
     app.register_blueprint(frontend)
+    app.jinja_env.filters["firstname"] = firstname
+    app.jinja_env.filters["compare"] = compare
     return app

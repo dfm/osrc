@@ -13,19 +13,31 @@
     <div id="description">
 
         <p>
-        {{ name }} is {{ adjectives|random }} {{ usage.languages[0].language }}
-        coder{%- if usage.languages[0].quantile < 50 %}
+        {{ name }} is {{ adjectives|random }}
+        {% if usage.languages[0].language in language_list %}
+        {{ language_list[usage.languages[0].language] }} {% else %}
+        {{ usage.languages[0].language }} coder{% endif %}
+        {%- if usage.languages[0].quantile < 50 %}
         (one of the {{ usage.languages[0].quantile }}% most active
         {{ usage.languages[0].language }} users){%- endif %} who
         {% if usage.events[0].type in event_actions %}spends a lot of time
         {{ event_actions[usage.events[0].type] }} between pushes
         {%- else %}loves pushing code{% endif %}.
 
-        {{ firstname }} is a {{ week_type }} who works best
+        {{ name|firstname }} is a {{ week_type }} who works best
         {{ best_time[1] }}
         {%- if best_time[0] == 0 or best_time[0] == 12 %}
         {%- elif best_time[0] < 12 %} (around {{ best_time[0] }} am)
         {%- else %} (around {{ best_time[0]-12 }} pm){% endif %}.
+        </p>
+
+        <p>
+        {% if connected_users %}
+        {{ name|firstname }}'s developer personality is similar to
+        <a href="https://github.com/{{ connected_users[0].username }}">{{ connected_users[0].name }}</a>'s
+        but {{ connected_users[0].name|firstname }} is
+        {{ connected_users[0].username|compare(username) }}.
+        {% endif %}
         </p>
 
     </div>
