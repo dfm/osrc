@@ -159,7 +159,7 @@ def get_usage_stats(username):
     languages = results[5]
 
     # Parse the languages into a nicer form and get quantiles.
-    [(pipe.zcount(format_key("lang:{0}:user".format(l)), 50, "+inf"),
+    [(pipe.zcount(format_key("lang:{0}:user".format(l)), 100, "+inf"),
       pipe.zrevrank(format_key("lang:{0}:user".format(l)), user))
      for l, c in languages]
     quants = pipe.execute()
