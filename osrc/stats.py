@@ -83,7 +83,7 @@ def get_social_stats(username, max_connected=5, max_users=50):
     # Find the connected users.
     connection_key = format_key("social:connection:{0}".format(user))
     pipe.exists(connection_key)
-    pipe.zrevrange(connection_key, 0, max_connected)
+    pipe.zrevrange(connection_key, 0, max_connected-1)
     flag, connected_users = pipe.execute()
     if not flag:
         repos = r.zrevrange(format_key("social:user:{0}".format(user)), 0, -1)
@@ -95,7 +95,7 @@ def get_social_stats(username, max_connected=5, max_users=50):
          if u != user]
         # pipe.expire(connection_key, 100)
         pipe.expire(connection_key, 172800)
-        pipe.zrevrange(connection_key, 0, max_connected)
+        pipe.zrevrange(connection_key, 0, max_connected-1)
         connected_users = pipe.execute()[-1]
 
     # Get the nearest neighbors in behavior space.
@@ -105,7 +105,7 @@ def get_social_stats(username, max_connected=5, max_users=50):
     names = pipe.execute()
 
     # Parse all the users.
-    users = [{"username": u, "name": n if n is not None else u}
+    users = [{"username": u, "name": n.decode("utf-8") if n is not None else u}
              for u, n in zip(connected_users+similar_users, names)]
 
     nc = len(connected_users)
@@ -167,7 +167,7 @@ def get_usage_stats(username):
     quants = pipe.execute()
     languages = [{"language": l,
                   "quantile": (min([100, int(100 * float(pos) / tot) + 1])
-                               if tot is not None and pos is not None
+                               if tot > 0 and pos is not None
                                else 100),
                   "count": int(c)}
                  for (l, c), tot, pos in zip(languages, quants[::2],
