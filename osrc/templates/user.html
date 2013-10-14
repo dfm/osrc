@@ -31,16 +31,65 @@
         {%- else %} (around {{ best_time[0]-12 }} pm){% endif %}.
         </p>
 
+        {% if similar_users|length > 0 %}
         <p>
-        {% if connected_users %}
-        {{ name|firstname }}'s developer personality is similar to
-        <a href="https://github.com/{{ connected_users[0].username }}">{{ connected_users[0].name }}</a>'s
-        but {{ connected_users[0].name|firstname }} is
-        {{ connected_users[0].username|compare(username) }}.
+        {{ name|firstname }}'s developer personality is very similar to
+        <a href="{{ url_for(".user_view", username=similar_users[0].username) }}">{{ similar_users[0].name }}</a>'s
+        but
+        {% if similar_users[0].name|firstname != name|firstname %}
+        {{ similar_users[0].name|firstname }}
+        {% else %}
+        {{ similar_users[0].name }}
+        {% endif %}
+        {{ username|compare(similar_users[0].username) }}.
+        {% if similar_users|length > 1 %}
+        There is also an uncanny similarity between {{ name|firstname }}'s
+        activity stream and those of
+        {% for user in similar_users[1:-1] %}
+        <a href="{{ url_for(".user_view", username=user.username) }}">{{ user.name }}</a>,
+        {% endfor %}
+        {% if similar_users|length > 2 %}
+        and
+        {% endif %}
+        <a href="{{ url_for(".user_view", username=similar_users[-1].username) }}">{{ similar_users[-1].name }}</a>.
         {% endif %}
         </p>
+        {% endif %}
+
+        {% if connected_users|length > 0 %}
+        <p>
+        It seems like {{ name|firstname }} is—or should be—friends with
+        <a href="{{ url_for(".user_view", username=connected_users[0].username) }}">{{ connected_users[0].name }}</a>.
+        With this in mind, it's worth noting that
+        {% if connected_users[0].name|firstname != name|firstname %}
+        {{ connected_users[0].name|firstname }}
+        {% else %}
+        {{ connected_users[0].name }}
+        {% endif %}
+        {{ username|compare(connected_users[0].username) }}.
+        {% if connected_users|length > 1 %}
+        There is also an obvious connection between {{ name|firstname }} and
+        {% for user in connected_users[1:-1] %}
+        <a href="{{ url_for(".user_view", username=user.username) }}">{{ user.name }}</a>,
+        {% endfor %}
+        {% if connected_users|length > 2 %}
+        and
+        {% endif %}
+        <a href="{{ url_for(".user_view", username=connected_users[-1].username) }}">{{ connected_users[-1].name }}</a>.
+        {% endif %}
+        </p>
+        {% endif %}
 
     </div>
+
+    <h1 id="stats">Statistics</h1>
+
+    <div id="schedule-text">
+
+
+
+    </div>
+
 </div>
 
 {% endblock %}

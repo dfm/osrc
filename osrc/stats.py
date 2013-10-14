@@ -4,10 +4,12 @@
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 
-__all__ = ["get_user_info"]
+__all__ = ["get_user_info", "get_social_stats", "get_usage_stats"]
 
+import json
 import flask
 import requests
+import numpy as np
 
 from .index import get_neighbors
 from .timezone import estimate_timezone
@@ -189,3 +191,96 @@ def get_usage_stats(username):
         "week": map(int, weekly_histogram),
         "languages": languages,
     }
+
+
+def get_comparison(user1, user2):
+    # Normalize the usernames.
+    user1, user2 = user1.lower(), user2.lower()
+
+    # Grab the stats from the database.
+    pipe = get_pipeline()
+    pipe.zscore(format_key("user"), user1)
+    pipe.zscore(format_key("user"), user2)
+    pipe.zrevrange(format_key("user:{0}:event".format(user1)), 0, -1,
+                   withscores=True)
+    pipe.zrevrange(format_key("user:{0}:event".format(user2)), 0, -1,
+                   withscores=True)
+    pipe.zrevrange(format_key("user:{0}:lang".format(user1)), 0, -1,
+                   withscores=True)
+    pipe.zrevrange(format_key("user:{0}:lang".format(user2)), 0, -1,
+                   withscores=True)
+    pipe.hgetall(format_key("user:{0}:day".format(user1)))
+    pipe.hgetall(format_key("user:{0}:day".format(user2)))
+    raw = pipe.execute()
+
+    # Get the total number of events.
+    total1 = float(raw[0]) if raw[0] is not None else 0
+    total2 = float(raw[1]) if raw[1] is not None else 0
+    if not total1:
+        return "is more active on GitHub"
+    elif not total2:
+        return "is less active on GitHub"
+
+    # Load the event types from disk.
+    with flask.current_app.open_resource("event_types.json") as f:
+        evttypes = json.load(f)
+
+    # Compare the fractional event types.
+    evts1 = dict(raw[2])
+    evts2 = dict(raw[3])
+    diffs = []
+    for e, desc in evttypes.iteritems():
+        if e in evts1 and e in evts2:
+            d = float(evts2[e]) / total2 / float(evts1[e]) * total1
+            if d != 1:
+                more = "more" if d > 1 else "less"
+                if d > 1:
+                    d = 1.0 / d
+                diffs.append((desc.format(more=more, user=user2), d * d))
+
+    # Compare language usage.
+    langs1 = dict(raw[4])
+    langs2 = dict(raw[5])
+    for l in set(langs1.keys()) | set(langs2.keys()):
+        n = float(langs1.get(l, 0)) / total1
+        d = float(langs2.get(l, 0)) / total2
+        if n != d and d > 0:
+            if n > 0:
+                d = d / n
+            else:
+                d = 1.0 / d
+            more = "more" if d > 1 else "less"
+            desc = "is {{more}} of a {0} aficionado".format(l)
+            if d > 1:
+                d = 1.0 / d
+            diffs.append((desc.format(more=more), d * d))
+
+    # Number of languages.
+    nl1, nl2 = len(raw[4]), len(raw[5])
+    if nl1 and nl2:
+        desc = "speaks {more} languages"
+        if nl1 > nl2:
+            diffs.append((desc.format(more="fewer"),
+                          nl2 * nl2 / nl1 / nl1))
+        else:
+            diffs.append((desc.format(user=user2, more="more"),
+                          nl1 * nl1 / nl2 / nl2))
+
+    # Compare the average weekly schedules.
+    week1 = map(lambda v: int(v[1]), raw[6].iteritems())
+    week2 = map(lambda v: int(v[1]), raw[7].iteritems())
+    mu1, mu2 = sum(week1) / 7.0, sum(week2) / 7.0
+    var1 = np.sqrt(sum(map(lambda v: (v - mu1) ** 2, week1)) / 7.0) / mu1
+    var2 = np.sqrt(sum(map(lambda v: (v - mu2) ** 2, week2)) / 7.0) / mu2
+    if var1 or var2 and var1 != var2:
+        if var1 > var2:
+            diffs.append(("has a more consistent weekly schedule", var2/var1))
+        else:
+            diffs.append(("has a less consistent weekly schedule", var1/var2))
+
+    # Compute the relative probabilities of the comparisons and normalize.
+    ps = map(lambda v: v[1], diffs)
+    norm = sum(ps)
+
+    # Choose a random description weighted by the probabilities.
+    return np.random.choice([d[0] for d in diffs], p=[p / norm for p in ps])

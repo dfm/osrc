@@ -18,7 +18,7 @@ def firstname(value):
 
 
 def compare(user1, user2):
-    return "more of a pusher"
+    return stats.get_comparison(user1, user2)
 
 
 @frontend.route("/")
