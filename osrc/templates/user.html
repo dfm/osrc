@@ -86,7 +86,18 @@
 
     <div id="schedule-text">
 
-
+        <p>
+        The two following graphs show {{ name }}'s average weekly and daily
+        schedules. These charts give significant insight {{ name|firstname }}'s
+        character as a developer.
+        {% if usage.events|length > 1 %}
+        The colors in the charts indicate the fraction of events that are
+        {% for event in usage.events[:-1] %}
+        {{ event.type }},
+        {% endfor %}
+        and {{ usage.events[-1].type }}.
+        {% endif %}
+        </p>
 
     </div>
 
