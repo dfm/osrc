@@ -24,7 +24,7 @@
         {{ event_actions[usage.events[0].type] }} between pushes
         {%- else %}loves pushing code{% endif %}.
 
-        {{ name|firstname }} is a {{ week_type }} who works best
+        {{ name|firstname }} is {{ week_type }} who works best
         {{ best_time[1] }}
         {%- if best_time[0] == 0 or best_time[0] == 12 %}
         {%- elif best_time[0] < 12 %} (around {{ best_time[0] }} am)
@@ -90,17 +90,69 @@
         The two following graphs show {{ name }}'s average weekly and daily
         schedules. These charts give significant insight {{ name|firstname }}'s
         character as a developer.
-        {% if usage.events|length > 1 %}
+        {% if usage.events|length > 1 -%}
         The colors in the charts indicate the fraction of events that are
-        {% for event in usage.events[:-1] %}
-        {{ event.type }},
-        {% endfor %}
-        and {{ usage.events[-1].type }}.
-        {% endif %}
+        {%- for i, event in enumerate(usage.events) -%}
+        {% if loop.last %} and{% endif %}
+        <span class="evttype" data-ind="{{ i }}">{{ event_verbs[event.type] }}</span>{%- if not loop.last -%},{%- endif -%}
+        {%- endfor %}.
+        {%- endif %}
         </p>
+
+        <div class="hist-block">
+            <div id="week" class="hist"></div>
+            <div id="day" class="hist"></div>
+        </div>
 
     </div>
 
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+
+<script src="{{ url_for("static", filename="d3.v3.min.js") }}"></script>
+<script src="{{ url_for("static", filename="underscore-min.js") }}"></script>
+<script src="{{ url_for("static", filename="jquery-1.9.1.min.js") }}"></script>
+<script src="{{ url_for("static", filename="plot.js") }}"></script>
+<script>
+
+(function () {
+
+    "use strict";
+
+    $(function () {
+        var cb = d3.scale.category10();
+        $(".evttype").each(function () {
+            var el = $(this);
+            el.css("color", cb(+el.data("ind")));
+        });
+
+        // Schedule histograms.
+        var week_hist = window.histogram().width(200)
+                                        .labels(["S","M","T","W","T","F","S"]);
+        var week_data = [{% for event in usage.events %}{{ event.week }}{% if not loop.last %}, {% endif %}{% endfor %}];
+        d3.select("#week")
+          .datum(week_data[0].map(function (d, i) {
+              return week_data.map(function (d) { return d[i]; });
+          }))
+          .call(week_hist);
+
+        var day_hist = window.histogram().width(400)
+                        .labels(["", "3am","","","6am","","","9am","","","noon",
+                                 "","","3pm","","","6pm","","","9pm","","","12am",""]);
+        var day_data = [{% for event in usage.events %}{{ event.day }}{% if not loop.last %}, {% endif %}{% endfor %}];
+        d3.select("#day")
+          .datum(day_data[0].map(function (d, i) {
+              return day_data.map(function (d) { return d[i]; });
+          }))
+          .call(day_hist);
+
+    });
+
+})();
+
+
+</script>
 {% endblock %}

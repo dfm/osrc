@@ -59,6 +59,10 @@ def user_view(username):
     with flask.current_app.open_resource("event_actions.json") as f:
         event_actions = json.load(f)
 
+    # Load the list of event verbs.
+    with flask.current_app.open_resource("event_verbs.json") as f:
+        event_verbs = json.load(f)
+
     # Figure out the user's best time of day.
     with flask.current_app.open_resource("time_of_day.json") as f:
         times_of_day = json.load(f)
@@ -90,8 +94,10 @@ def user_view(username):
                                  adjectives=adjectives,
                                  language_list=language_list,
                                  event_actions=event_actions,
+                                 event_verbs=event_verbs,
                                  week_type=week_type,
                                  best_time=best_time,
+                                 enumerate=enumerate,
                                  **stats)
 
 
