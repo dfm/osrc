@@ -9,7 +9,6 @@ body {
     font-size: 16pt;
     line-height: 2;
     color: #222;
-    padding-bottom: 50px;
 }
 
 a {
@@ -227,11 +226,8 @@ input:focus {
 
 #footer {
     border-top: 1px solid #BDC3C7;
-    background: #ddd;
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    padding: 15px 0;
+    margin: 40px 0;
+    padding: 30px 0;
     font-size: 12px;
     font-style: italic;
     color: #222;
