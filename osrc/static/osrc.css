@@ -1,7 +1,7 @@
 @import url(http://fonts.googleapis.com/css?family=Lato:100,300,400,700,900,300italic);
 
 html {
-    background: white;
+    background: #ECF0F1;
 }
 
 body {
@@ -122,6 +122,7 @@ code {
     display: inline-block;
     border: 1px solid #333;
     border-radius: 3px;
+    margin-right: 20px;
 }
 
 .profile-name {
@@ -130,7 +131,6 @@ code {
     display: inline-block;
     font-size: 50px;
     line-height: 50px;
-    margin-left: 20px;
     color: #333;
 }
 
@@ -234,7 +234,6 @@ input:focus {
 }
 
 #error {
-    display: none;
     font-size: 18pt;
     font-weight: 300;
     line-height: 1.4;

@@ -23,10 +23,10 @@ def compare(user1, user2):
 
 @frontend.route("/")
 def index():
-    return "HELLO"
+    return flask.render_template("index.html")
 
 
-def get_all_the_stats(username):
+def get_user_stats(username):
     # Get the user information.
     user_info = stats.get_user_info(username)
 
@@ -43,7 +43,7 @@ def get_all_the_stats(username):
 @frontend.route("/<username>")
 def user_view(username):
     # Get the stats.
-    stats = get_all_the_stats(username)
+    stats = get_user_stats(username)
     if stats is None:
         return flask.render_template("noinfo.html")
 
@@ -103,8 +103,25 @@ def user_view(username):
 
 @frontend.route("/<username>.json")
 def stats_view(username):
-    stats = get_all_the_stats(username)
+    stats = get_user_stats(username)
     if stats is None:
         return flask.jsonify(message="Not enough information for {0}."
                              .format(username)), 404
     return flask.jsonify(stats)
+
+
+@frontend.route("/<username>/<reponame>")
+def repo_view(username, reponame):
+    s = stats.get_repo_info(username, reponame)
+    if s is None:
+        return flask.render_template("noinfo.html")
+    return flask.render_template("repo.html", **s)
+
+
+@frontend.route("/<username>/<reponame>.json")
+def repo_stats_view(username, reponame):
+    s = stats.get_repo_info(username, reponame)
+    if s is None:
+        return flask.jsonify(message="Not enough information for {0}/{1}."
+                             .format(username, reponame)), 404
+    return flask.jsonify(**s)

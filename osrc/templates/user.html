@@ -80,6 +80,15 @@
         </p>
         {% endif %}
 
+        {% if repositories|length > 1 %}
+        <p>
+        These days, {{ name|firstname }} is most actively contributing to the repositories:
+        {% for repo in repositories %}
+        {% if loop.last %} and {% endif %}<a href="/{{ repo.repo }}">{{ repo.repo }}</a>{%- if not loop.last -%},{% endif %}
+        {%- endfor -%}.
+        </p>
+        {% endif %}
+
     </div>
 
     <h1 id="stats">Statistics</h1>
@@ -158,17 +167,23 @@
         </p>
         {% endif %}
 
+        <p>
+        <strong>Note</strong>: like stats? Of course you do. Did you know that you
+        can get access to <a href="{{ url_for(".stats_view", username=username) }}">the
+        raw data that was used to generate this page in JSON format</a>?
+        </p>
+
     </div>
 
 </div>
+
+{% include "nav.html" %}
 
 {% endblock %}
 
 {% block scripts %}
 
 <script src="{{ url_for("static", filename="d3.v3.min.js") }}"></script>
-<script src="{{ url_for("static", filename="underscore-min.js") }}"></script>
-<script src="{{ url_for("static", filename="jquery-1.9.1.min.js") }}"></script>
 <script src="{{ url_for("static", filename="plot.js") }}"></script>
 <script>
 

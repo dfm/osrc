@@ -1,0 +1,21 @@
+<div class="front-splash">
+    <div class="splash-text">
+        {% if nav_text %}
+        {{ nav_text() }}
+        {% else %}
+        Want to try another user? Enter a <a href="https://github.com">GitHub</a>
+        username
+        {% endif %}
+    </div>
+    <form action="javascript:goto_user();">
+        <input id="username" type="text" placeholder="How about 'mojombo', for example…">
+    </form>
+</div>
+
+<script>
+    function goto_user () {
+        var val = $("#username").val();
+        if (val) window.location = "{{ url_for(".user_view", username="") }}" + val;
+        return false;
+    }
+</script>

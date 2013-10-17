@@ -84,16 +84,16 @@ def get_social_stats(username, max_connected=5, max_users=50):
     connection_key = format_key("social:connection:{0}".format(user))
     pipe.exists(connection_key)
     pipe.zrevrange(connection_key, 0, max_connected-1)
-    flag, connected_users = pipe.execute()
+    pipe.zrevrange(format_key("social:user:{0}".format(user)), 0, -1,
+                   withscores=True)
+    flag, connected_users, repos = pipe.execute()
     if not flag:
-        repos = r.zrevrange(format_key("social:user:{0}".format(user)), 0, -1)
         [pipe.zrevrange(format_key("social:repo:{0}".format(repo)), 0,
                         max_users)
-         for repo in repos]
+         for repo, count in repos]
         users = pipe.execute()
         [pipe.zincrby(connection_key, u, 1) for l in users for u in l
          if u != user]
-        # pipe.expire(connection_key, 100)
         pipe.expire(connection_key, 172800)
         pipe.zrevrange(connection_key, 0, max_connected-1)
         connected_users = pipe.execute()[-1]
@@ -112,6 +112,8 @@ def get_social_stats(username, max_connected=5, max_users=50):
     return {
         "connected_users": users[:nc],
         "similar_users": users[nc:],
+        "repositories": [{"repo": repo, "count": int(count)}
+                         for repo, count in repos[:5]],
     }
 
 
@@ -284,3 +286,45 @@ def get_comparison(user1, user2):
 
     # Choose a random description weighted by the probabilities.
     return np.random.choice([d[0] for d in diffs], p=[p / norm for p in ps])
+
+
+def get_repo_info(username, reponame, maxusers=50, max_recommend=5):
+    # Normalize the repository name.
+    repo = "{0}/{1}".format(username, reponame)
+    rkey = format_key("social:repo:{0}".format(repo))
+    recommend_key = format_key("social:recommend:{0}".format(repo))
+
+    # Get the list of users.
+    pipe = get_pipeline()
+    pipe.exists(rkey)
+    pipe.exists(recommend_key)
+    pipe.zrevrange(recommend_key, 0, max_recommend-1)
+    pipe.zrevrange(rkey, 0, maxusers, withscores=True)
+    flag1, flag2, recommendations, users = pipe.execute()
+    if not flag1:
+        return None
+
+    if not flag2:
+        # Compute the repository similarities.
+        [pipe.zrevrange(format_key("social:user:{0}".format(u)), 0, -1)
+         for u, count in users]
+        repos = pipe.execute()
+        [pipe.zincrby(recommend_key, r, 1) for l in repos for r in l
+         if r != repo]
+        pipe.expire(recommend_key, 172800)
+        pipe.zrevrange(recommend_key, 0, max_recommend-1)
+        recommendations = pipe.execute()[-1]
+
+    # Get the contributor names.
+    users = users[:5]
+    [pipe.get(format_key("user:{0}:name".format(u))) for u, count in users]
+    names = pipe.execute()
+
+    return {
+        "repository": repo,
+        "recommendations": recommendations,
+        "contributors": [{"username": u, "name": n.decode("utf-8")
+                          if n is not None else u,
+                          "count": int(count)}
+                         for (u, count), n in zip(users, names)]
+    }
