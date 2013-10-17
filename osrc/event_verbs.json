@@ -16,5 +16,6 @@
     "PullRequestReviewCommentEvent": "pull request comments",
     "PushEvent": "pushes",
     "TeamAddEvent": "teams",
-    "WatchEvent": "watching"
+    "WatchEvent": "watching",
+    "ReleaseEvent": "new releases"
 }

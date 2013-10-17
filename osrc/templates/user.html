@@ -104,6 +104,13 @@
             <div id="day" class="hist"></div>
         </div>
 
+        <p>
+        <strong>Note</strong>: an attempt has been made to show these plots in
+        in the correct timezone (based on {{ name|firstname }}'s location listed
+        on <a href="https://github.com/{{ username }}">their GitHub profile</a>)
+        but this procedure is imperfect at best.
+        </p>
+
     </div>
 
 </div>
@@ -145,7 +152,7 @@
         var day_data = [{% for event in usage.events %}{{ event.day }}{% if not loop.last %}, {% endif %}{% endfor %}];
         d3.select("#day")
           .datum(day_data[0].map(function (d, i) {
-              return day_data.map(function (d) { return d[i]; });
+              return day_data.map(function (d) { return d[(i+2)%24]; });
           }))
           .call(day_hist);
 
