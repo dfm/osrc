@@ -1,6 +1,12 @@
 The Open Source Report Card (v2)
 ================================
 
+New in version 2:
+
+* real time stats (updated daily),
+* server-side rendering,
+* JSON endpoint to access all the data,
+* repository recommendations based on a social graphof GitHub activity.
 
 Running the analysis
 --------------------
@@ -15,25 +21,15 @@ requirements using:
 pip install -r requirements.txt
 ```
 
-Download all the data by running:
+Version 2 of the OSRC comes with a deamon `osrcd` designed to be run once a day to update the
+stats. To initialize the database with the event stream starting at the beinning of 2013, run:
 
 ```
-python fetch.py
+./osrcd --since 2013-01-01
 ```
 
-And then analyse the data by running:
-
-```
-python process.py data/*.json.gz
-```
-
-This will accumulate stats in the redis database.
-
-Finally, you can build the K-nearest neighbors index by running:
-
-```
-python osrc/build_index.py
-```
+After this finishes, all you need to do is rerun `osrcd` (using a cronjob or similar) once a
+day (some time after 1am PST) to update the stats.
 
 The web app is a [Flask](http://flask.pocoo.org/) app that is defined in `osrc/__init__.py`.
 
