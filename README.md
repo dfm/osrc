@@ -6,7 +6,7 @@ New in version 2:
 * real time stats (updated daily),
 * server-side rendering,
 * JSON endpoint to access all the data,
-* repository recommendations based on a social graphof GitHub activity.
+* repository recommendations based on a social graph of GitHub activity.
 
 Running the analysis
 --------------------
