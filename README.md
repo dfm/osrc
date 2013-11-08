@@ -6,7 +6,7 @@ New in version 2:
 * real time stats (updated daily),
 * server-side rendering,
 * JSON endpoint to access all the data,
-* repository recommendations based on a social graphof GitHub activity.
+* repository recommendations based on a social graph of GitHub activity.
 
 Running the analysis
 --------------------
@@ -21,7 +21,7 @@ requirements using:
 pip install -r requirements.txt
 ```
 
-Version 2 of the OSRC comes with a deamon `osrcd` designed to be run once a day to update the
+Version 2 of the OSRC comes with a daemon `osrcd` designed to be run once a day to update the
 stats. To initialize the database with the event stream starting at the beinning of 2013, run:
 
 ```
