@@ -13,13 +13,19 @@
     <div id="description">
 
         <p>
+
         {{ name }} is <a href="#languages">{{ adjectives|random }}
+        {% if usage.languages|length > 0 %}
         {% if usage.languages[0].language in language_list %}
         {{ language_list[usage.languages[0].language] }} {% else %}
         {{ usage.languages[0].language }} coder{% endif %}</a>
         {%- if usage.languages[0].quantile < 50 %}
         (one of the {{ usage.languages[0].quantile }}% most active
-        {{ usage.languages[0].language }} users){%- endif %} who
+        {{ usage.languages[0].language }} users){%- endif %}
+        {% else %}
+        hacker
+        {% endif %}
+        who
         <a href="#events">{%- if usage.events[0].type in event_actions %}spends a lot of time
         {{ event_actions[usage.events[0].type] }} between pushes
         {%- else %}loves pushing code{% endif %}</a>.
