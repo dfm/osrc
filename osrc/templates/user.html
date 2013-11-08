@@ -17,7 +17,7 @@
         {{ name }} is <a href="#languages">{{ adjectives|random }}
         {% if usage.languages|length > 0 %}
         {% if usage.languages[0].language in language_list %}
-        {{ language_list[usage.languages[0].language] }} {% else %}
+        {{ language_list[usage.languages[0].language] }}{% else %}
         {{ usage.languages[0].language }} coder{% endif %}</a>
         {%- if usage.languages[0].quantile < 50 %}
         (one of the {{ usage.languages[0].quantile }}% most active
