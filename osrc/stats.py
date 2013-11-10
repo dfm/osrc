@@ -18,6 +18,12 @@ from .database import get_connection, get_pipeline, format_key
 ghapi_url = "https://api.github.com/users/{username}"
 
 
+def get_last_updated():
+    pipe = get_pipeline()
+    pipe.get(format_key("updated"))
+
+    return pipe.execute()[0]
+
 def get_user_info(username):
     # Normalize the username.
     user = username.lower()

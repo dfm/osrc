@@ -8,6 +8,7 @@ import flask
 from math import sqrt
 
 from . import stats
+from .stats import get_last_updated
 
 frontend = flask.Blueprint("frontend", __name__)
 
@@ -97,6 +98,7 @@ def user_view(username):
                                  event_verbs=event_verbs,
                                  week_type=week_type,
                                  best_time=best_time,
+                                 last_updated=get_last_updated(),
                                  enumerate=enumerate,
                                  **stats)
 
@@ -115,7 +117,7 @@ def repo_view(username, reponame):
     s = stats.get_repo_info(username, reponame)
     if s is None:
         return flask.render_template("noinfo.html")
-    return flask.render_template("repo.html", **s)
+    return flask.render_template("repo.html", last_updated=get_last_updated(), **s)
 
 
 @frontend.route("/<username>/<reponame>.json")

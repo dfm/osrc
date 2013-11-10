@@ -19,6 +19,7 @@ import time
 import shutil
 import logging
 import requests
+import datetime
 from datetime import date, timedelta
 from tempfile import NamedTemporaryFile
 
@@ -96,6 +97,8 @@ def process(filename):
 
     # Set up a redis pipeline.
     pipe = get_pipeline()
+
+    pipe.set(_format("updated"), datetime.datetime(year, month, day, hour).strftime("%Y-%m-%d %H:%M:%S"))
 
     # Unzip and load the file.
     strt = time.time()
