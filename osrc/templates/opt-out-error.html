@@ -9,13 +9,15 @@
         {% with messages = get_flashed_messages() %}
         {% if messages %}
         The opt-out procedure failed with the message(s):
-        <ul class=flashes>
+        <ul>
         {% for message in messages %}
         <li>{{ message }}</li>
         {% endfor %}
         </ul>
         {% endif %}
         {% endwith %}
+        </p>
+        <p>
         You can
         <a href="{{ url_for('.opt_out_login', username=username) }}">try again</a>
         or <a href="https://github.com/dfm/osrc/issues">open an issue on GitHub</a>

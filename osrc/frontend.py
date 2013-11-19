@@ -12,6 +12,7 @@ import requests
 from math import sqrt
 
 from . import stats
+from .database import get_connection, format_key
 
 frontend = flask.Blueprint("frontend", __name__)
 
@@ -199,8 +200,9 @@ def opt_out_callback(username):
 
     # Save the opt-out to the database.
     user = username.lower()
+    get_connection().set(format_key("user:{0}:optout".format(user)), True)
 
-    return flask.redirect(flask.url_for(".opt_out_success"))
+    return flask.redirect(flask.url_for(".opt_out_success", username=username))
 
 
 @frontend.route("/opt-out/<username>/error")
@@ -208,6 +210,6 @@ def opt_out_error(username):
     return flask.render_template("opt-out-error.html", username=username)
 
 
-@frontend.route("/opt-out/success")
+@frontend.route("/opt-out/<username>/success")
 def opt_out_success(username):
-    return flask.render_template("opt-out-success.html", username=username)
+    return flask.render_template("opt-out-success.html")
