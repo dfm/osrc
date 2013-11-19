@@ -11,6 +11,17 @@
 </head>
 <body>
 
+    <div id="banner">
+        <div class="container">
+            <strong>Dear recruiters:</strong>
+            While you read this, make sure that you remember that
+            <a href="http://blog.jcoglan.com/2013/11/15/why-github-is-not-your-cv/">GitHub is not your C.V.</a>
+            and that these stats only provide a <i>biased and one-sided view</i>.
+            This is just a toy. Don't take it too seriously!
+            <a href="javascript:hide_banner()" class="promise">OK. I promise!</a>
+        </div>
+    </div>
+
     <div class="header">
         <a class="header-title" href="/">The<br>Open Source<br>Report Card</a>
         {% include "ads.html" ignore missing %}
@@ -29,6 +40,25 @@
     </div>
 
     <script src="{{ url_for("static", filename="jquery-1.9.1.min.js") }}"></script>
+    <script>
+
+        function hide_banner () {
+            $("#banner").hide();
+            document.cookie = "osrc_promise=true";
+            return false;
+        }
+
+        $(function () {
+            var cookie = document.cookie,
+                s = cookie.indexOf("osrc_promise="), e;
+            if (s == -1) return;
+            s = cookie.indexOf("=", s) + 1;
+            e = cookie.indexOf(";", s);
+            if (e == -1) e = cookie.length;
+            if (cookie.substring(s, e) === "true") $("#banner").hide();
+        });
+
+    </script>
     {% block scripts %}{% endblock %}
     {% include "analytics.html" ignore missing %}
 

@@ -19,6 +19,48 @@ a:hover {
     color: #1ABC9C;
 }
 
+#banner {
+    font-size: 13pt;
+    background-color: #16A085;
+    line-height: 1.3em;
+    color: white;
+    padding: 20px 0;
+}
+
+#banner strong {
+    display: block;
+    text-align: center;
+    font-size: 14pt;
+    font-style: italic;
+    padding: 0 0 8px;
+}
+
+#banner a {
+    color: white;
+}
+
+#banner a:hover {
+    color: white;
+}
+
+#banner .promise {
+    display: block;
+    width: 170px;
+    margin: 10px auto 0;
+    padding: 6px 0;
+    text-align: center;
+    font-weight: bold;
+    text-decoration: none;
+    border: 3px solid white;
+    border-radius: 5px;
+    background-color: none;
+}
+
+#banner .promise:hover {
+    background-color: white;
+    color: #16A085;
+}
+
 pre, code {
     font-family: Menlo, Monaco, "Courier New", monospace;
     font-size: 14px;
