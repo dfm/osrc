@@ -103,7 +103,7 @@
 
         <p id="schedule">
         The two following graphs show {{ name }}'s average weekly and daily
-        schedules. These charts give significant insight {{ name|firstname }}'s
+        schedules. These charts give significant insight into {{ name|firstname }}'s
         character as a developer.
         {% if usage.events|length > 1 -%}
         The colors in the charts indicate the fraction of events that are
@@ -129,7 +129,7 @@
         {% if usage.events|length > 1 %}
         <p id="events">
         We already know that {{ name|firstname }}
-        {% if usage.events[0].type in event_actions %}loves to
+        {% if usage.events[0].type in event_actions %}loves
         {{ event_actions[usage.events[0].type] }} whenever they're not pushing code
         {%- else %}loves pushing code{% endif %}
         but the following chart sheds some light onto what {{ name|firstname }}
