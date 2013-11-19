@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Opt-Out of The Open Source Report Card{% endblock %}
+{% block body %}
+
+<div id="profile">
+    <div id="description">
+        <p>
+        Sorry to hear that you want to opt-out!
+        <a href="{{ url_for('.opt_out_login', username=username) }}">Login using GitHub</a>
+        to verify your account and your profile will disappear immediately.
+        </p>
+    </div>
+</div>
+
+{% endblock %}

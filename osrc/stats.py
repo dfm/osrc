@@ -28,7 +28,11 @@ def get_user_info(username):
     pipe.get(format_key("user:{0}:etag".format(user)))
     pipe.get(format_key("user:{0}:gravatar".format(user)))
     pipe.get(format_key("user:{0}:tz".format(user)))
-    name, etag, gravatar, timezone = pipe.execute()
+    pipe.exists(format_key("user:{0}:optout".format(user)))
+    name, etag, gravatar, timezone, optout = pipe.execute()
+    if optout:
+        return None
+
     if name is not None:
         name = name.decode("utf-8")
 
