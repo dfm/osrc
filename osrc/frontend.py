@@ -159,10 +159,70 @@ def opt_out_callback(username):
     state1 = flask.session.get("state")
     state2 = flask.request.args.get("state")
     code = flask.request.args.get("code")
+
+    val = github_logged_in(username, state2, code, ".opt_out_error", ".opt_out_success")
+
+    user = username.lower()
+    if val[0]:
+        get_connection().set(format_key("user:{0}:optout".format(user)), True)
+    return val[1]
+
+@frontend.route("/opt-in/<username>/login")
+def opt_in_login(username):
+    state = "".join([random.choice(string.ascii_uppercase + string.digits)
+                     for x in range(24)])
+    flask.session["state"] = state
+    params = dict(
+        client_id=flask.current_app.config["GITHUB_ID"],
+        redirect_uri=flask.url_for(".opt_in_callback", username=username,
+                                   _external=True),
+        state=state,
+    )
+    return flask.redirect("https://github.com/login/oauth/authorize?{0}"
+                          .format(urllib.urlencode(params)))
+
+@frontend.route("/opt-in/<username>/callback")
+def opt_in_callback(username):
+    state1 = flask.session.get("state")
+    state2 = flask.request.args.get("state")
+    code = flask.request.args.get("code")
+
+    val = github_logged_in(username, state2, code, ".opt_in_error", ".opt_in_success")
+
+    user = username.lower()
+    if val[0]:
+        get_connection().delete(format_key("user:{0}:optout".format(user)))
+    return val[1]
+
+@frontend.route("/opt-out/<username>/error")
+def opt_out_error(username):
+    return flask.render_template("opt-out-error.html", username=username)
+
+
+@frontend.route("/opt-out/<username>/success")
+def opt_out_success(username):
+    return flask.render_template("opt-out-success.html")
+
+@frontend.route("/opt-in/<username>")
+def opt_in(username):
+    return flask.render_template("opt-in.html", username=username)
+
+@frontend.route("/opt-in/<username>/error")
+def opt_in_error(username):
+    return flask.render_template("opt-in-error.html", username=username)
+
+
+@frontend.route("/opt-in/<username>/success")
+def opt_in_success(username):
+    return flask.render_template("opt-in-success.html")
+
+def github_logged_in(username, state2, code, error_callback, success_callback):
+    state1 = flask.session.get("state")
+    code = flask.request.args.get("code")
     if state1 is None or state2 is None or code is None or state1 != state2:
         flask.flash("Couldn't authorize access.")
-        return flask.redirect(flask.url_for(".opt_out_error",
-                                            username=username))
+        return (False, flask.redirect(flask.url_for(error_callback,
+                                            username=username)))
 
     # Get an access token.
     params = dict(
@@ -174,42 +234,28 @@ def opt_out_callback(username):
                       data=params, headers={"Accept": "application/json"})
     if r.status_code != requests.codes.ok:
         flask.flash("Couldn't acquire an access token from GitHub.")
-        return flask.redirect(flask.url_for(".opt_out_error",
-                                            username=username))
+        return (False, flask.redirect(flask.url_for(error_callback,
+                                            username=username)))
     data = r.json()
     access = data.get("access_token", None)
     if access is None:
         flask.flash("No access token returned.")
-        return flask.redirect(flask.url_for(".opt_out_error",
-                                            username=username))
+        return (False, flask.redirect(flask.url_for(error_callback,
+                                            username=username)))
 
     # Check the username.
     r = requests.get("https://api.github.com/user",
                      params={"access_token": access})
     if r.status_code != requests.codes.ok:
         flask.flash("Couldn't get user information.")
-        return flask.redirect(flask.url_for(".opt_out_error",
-                                            username=username))
+        return (False, flask.redirect(flask.url_for(error_callback,
+                                            username=username)))
     data = r.json()
     login = data.get("login", None)
     if login is None or login.lower() != username.lower():
         flask.flash("You have to log in as '{0}' in order to opt-out."
                     .format(username))
-        return flask.redirect(flask.url_for(".opt_out_error",
+        return flask.redirect(flask.url_for(error_callback,
                                             username=username))
-
-    # Save the opt-out to the database.
-    user = username.lower()
-    get_connection().set(format_key("user:{0}:optout".format(user)), True)
-
-    return flask.redirect(flask.url_for(".opt_out_success", username=username))
-
-
-@frontend.route("/opt-out/<username>/error")
-def opt_out_error(username):
-    return flask.render_template("opt-out-error.html", username=username)
-
-
-@frontend.route("/opt-out/<username>/success")
-def opt_out_success(username):
-    return flask.render_template("opt-out-success.html")
+    return (True, flask.redirect(flask.url_for(success_callback,
+        username=username)))
