@@ -44,6 +44,7 @@ a:hover {
 }
 
 #banner .promise {
+    cursor: pointer;
     display: block;
     width: 170px;
     margin: 10px auto 0;

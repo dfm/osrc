@@ -18,7 +18,7 @@
             <a href="http://blog.jcoglan.com/2013/11/15/why-github-is-not-your-cv/">GitHub is not your C.V.</a>
             and that these stats only provide a <i>biased and one-sided view</i>.
             This is just a toy. Don't take it too seriously!
-            <a href="javascript:hide_banner()" class="promise">OK. I promise!</a>
+            <span class="promise">OK. I promise!</span>
         </div>
     </div>
 
@@ -49,6 +49,8 @@
         }
 
         $(function () {
+            $("#banner .promise").on("click", hide_banner);
+
             var cookie = document.cookie,
                 s = cookie.indexOf("osrc_promise="), e;
             if (s == -1) return;
