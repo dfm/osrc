@@ -7,15 +7,19 @@
         username
         {% endif %}
     </div>
-    <form action="javascript:goto_user();">
+    <form class="nav-form">
         <input id="username" type="text" placeholder="How about 'mojombo', for example…">
     </form>
 </div>
 
 <script>
-    function goto_user () {
+    function goto_user (e) {
         var val = $("#username").val();
+        e.preventDefault();
         if (val) window.location = "{{ url_for(".user_view", username="") }}" + val;
         return false;
     }
+    $(function () {
+        $(".nav-form").on("submit", goto_user);
+    });
 </script>
