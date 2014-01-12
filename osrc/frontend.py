@@ -33,26 +33,26 @@ def index():
 
 def get_user_stats(username):
     # Get the user information.
-    user_info = stats.get_user_info(username)
+    user_info, optout = stats.get_user_info(username)
     if user_info is None:
-        return None
+        return None, optout
 
     # Get the usage stats and bail if there isn't enough information.
     usage = stats.get_usage_stats(username)
     if usage is None:
-        return None
+        return None, optout
 
     # Get the social stats.
     social_stats = stats.get_social_stats(username)
-    return dict(dict(user_info, **social_stats), usage=usage)
+    return dict(dict(user_info, **social_stats), usage=usage), optout
 
 
 @frontend.route("/<username>")
 def user_view(username):
     # Get the stats.
-    stats = get_user_stats(username)
+    stats, optout = get_user_stats(username)
     if stats is None:
-        return flask.render_template("noinfo.html")
+        return flask.render_template("noinfo.html", optout=optout)
 
     # Load the list of adjectives.
     with flask.current_app.open_resource("adjectives.json") as f:
@@ -110,10 +110,14 @@ def user_view(username):
 
 @frontend.route("/<username>.json")
 def stats_view(username):
-    stats = get_user_stats(username)
+    stats, optout = get_user_stats(username)
     if stats is None:
-        return flask.jsonify(message="Not enough information for {0}."
-                             .format(username)), 404
+        if optout:
+            return flask.jsonify(message="{0} has opted-out of this service."
+                                 .format(username))
+        else:
+            return flask.jsonify(message="Not enough information for {0}."
+                                 .format(username)), 404
     return flask.jsonify(stats)
 
 

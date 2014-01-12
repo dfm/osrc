@@ -1,9 +1,14 @@
 {% extends "base.html" %}
 
 {% block body %}
+
 <div id="error">
+{% if optout %}
+    This user has opted-out of their report.
+{% else %}
     Unfortunately, we don't have enough information to write a
     report card for that user. Sorry!
+{% endif %}
 </div>
 
 {% include "nav.html" %}

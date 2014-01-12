@@ -31,7 +31,7 @@ def get_user_info(username):
     pipe.exists(format_key("user:{0}:optout".format(user)))
     name, etag, gravatar, timezone, optout = pipe.execute()
     if optout:
-        return None
+        return None, True
 
     if name is not None:
         name = name.decode("utf-8")
@@ -76,7 +76,7 @@ def get_user_info(username):
         "name": name if name is not None else username,
         "gravatar": gravatar if gravatar is not None else "none",
         "timezone": int(timezone) if timezone is not None else None,
-    }
+    }, False
 
 
 def get_social_stats(username, max_connected=5, max_users=50):
