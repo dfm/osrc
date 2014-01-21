@@ -118,7 +118,12 @@ def stats_view(username):
         else:
             return flask.jsonify(message="Not enough information for {0}."
                                  .format(username)), 404
-    return flask.jsonify(stats)
+    if not flask.request.args.get("jsonp", "") == "":
+        resp = flask.make_response("%s(%s);" % (flask.request.args.get("jsonp", ""), flask.json.dumps(stats)), 200)
+        resp.headers["Content-Type"] = "application/json"
+        return resp
+    else:
+        return flask.jsonify(stats)
 
 
 @frontend.route("/<username>/<reponame>")
@@ -135,7 +140,12 @@ def repo_stats_view(username, reponame):
     if s is None:
         return flask.jsonify(message="Not enough information for {0}/{1}."
                              .format(username, reponame)), 404
-    return flask.jsonify(**s)
+    if not flask.request.args.get("jsonp", "") == "":
+        resp = flask.make_response("%s(%s);" % (flask.request.args.get("jsonp", ""), flask.json.dumps(s)), 200)
+        resp.headers["Content-Type"] = "application/json"
+        return resp
+    else:
+        return flask.jsonify(**s)
 
 
 @frontend.route("/opt-out/<username>")
