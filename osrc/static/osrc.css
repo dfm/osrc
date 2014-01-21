@@ -158,6 +158,13 @@ code {
 .profile-badge {
     line-height: 1;
     text-align: center;
+    position:relative;
+    left:50%;
+    -ms-transform: translate(-50%);
+    -o-transform: translate(-50%);
+    -moz-transform: translate(-50%);
+    -webkit-transform: translate(-50%);
+    transform: translate(-50%);
 }
 
 .avatar {
@@ -169,7 +176,7 @@ code {
 }
 
 .profile-name {
-    float: left;
+    //float: left;
     font-weight: 100;
     display: inline-block;
     font-size: 50px;

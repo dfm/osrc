@@ -28,8 +28,11 @@ def get_user_info(username):
     pipe.get(format_key("user:{0}:etag".format(user)))
     pipe.get(format_key("user:{0}:gravatar".format(user)))
     pipe.get(format_key("user:{0}:tz".format(user)))
+    pipe.get(format_key("user:{0}:url".format(user)))
+    pipe.get(format_key("user:{0}:email".format(user)))
+    pipe.get(format_key("user:{0}:company".format(user)))
     pipe.exists(format_key("user:{0}:optout".format(user)))
-    name, etag, gravatar, timezone, optout = pipe.execute()
+    name, etag, gravatar, timezone, url, email, company, optout = pipe.execute()
     if optout:
         return None, True
 
@@ -57,6 +60,9 @@ def get_user_info(username):
         name = data.get("name") or data.get("login") or username
         etag = r.headers["ETag"]
         gravatar = data.get("gravatar_id", "none")
+        url = data.get("blog") if data.get("blog") is not None and data.get("blog") is not "" else None
+        email = data.get("email") if data.get("email") is not None and data.get("email") is not "" else None
+        company = data.get("company") if data.get("company") is not None and data.get("company") is not "" else None
         location = data.get("location", None)
         if location is not None:
             tz = estimate_timezone(location)
@@ -69,13 +75,22 @@ def get_user_info(username):
         pipe.set(format_key("user:{0}:gravatar".format(user)), gravatar)
         if timezone is not None:
             pipe.set(format_key("user:{0}:tz".format(user)), timezone)
+        if url is not None:
+            pipe.set(format_key("user:{0}:url".format(user)), url)
+        if email is not None:
+            pipe.set(format_key("user:{0}:email".format(user)), email)
+        if company is not None:
+            pipe.set(format_key("user:{0}:company".format(user)), company)
         pipe.execute()
+
+    deetline = " - ".join(list(detail for detail in [email, url, company] if detail is not None))
 
     return {
         "username": username,
         "name": name if name is not None else username,
         "gravatar": gravatar if gravatar is not None else "none",
         "timezone": int(timezone) if timezone is not None else None,
+        "deetline": deetline
     }, False
 
 
