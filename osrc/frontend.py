@@ -10,11 +10,29 @@ import string
 import random
 import requests
 from math import sqrt
+from functools import wraps
 
 from . import stats
 from .database import get_connection, format_key
 
 frontend = flask.Blueprint("frontend", __name__)
+
+
+# JSONP support.
+# Based on: https://gist.github.com/aisipos/1094140
+def jsonp(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        callback = flask.request.args.get("callback", False)
+        if callback:
+            r = f(*args, **kwargs)
+            content = "{0}({1})".format(callback, r.data)
+            mime = "application/javascript"
+            return flask.current_app.response_class(content, mimetype=mime,
+                                                    status=r.status_code)
+        else:
+            return f(*args, **kwargs)
+    return decorated_function
 
 
 # Custom Jinja2 filters.
@@ -109,21 +127,15 @@ def user_view(username):
 
 
 @frontend.route("/<username>.json")
+@jsonp
 def stats_view(username):
     stats, optout = get_user_stats(username)
     if stats is None:
-        if optout:
-            return flask.jsonify(message="{0} has opted-out of this service."
-                                 .format(username))
-        else:
-            return flask.jsonify(message="Not enough information for {0}."
-                                 .format(username)), 404
-    if not flask.request.args.get("jsonp", "") == "":
-        resp = flask.make_response("%s(%s);" % (flask.request.args.get("jsonp", ""), flask.json.dumps(stats)), 200)
-        resp.headers["Content-Type"] = "application/json"
+        resp = flask.jsonify(message="Not enough information for {0}."
+                             .format(username))
+        resp.status_code = 404
         return resp
-    else:
-        return flask.jsonify(stats)
+    return flask.jsonify(stats)
 
 
 @frontend.route("/<username>/<reponame>")
@@ -135,17 +147,15 @@ def repo_view(username, reponame):
 
 
 @frontend.route("/<username>/<reponame>.json")
+@jsonp
 def repo_stats_view(username, reponame):
     s = stats.get_repo_info(username, reponame)
     if s is None:
-        return flask.jsonify(message="Not enough information for {0}/{1}."
-                             .format(username, reponame)), 404
-    if not flask.request.args.get("jsonp", "") == "":
-        resp = flask.make_response("%s(%s);" % (flask.request.args.get("jsonp", ""), flask.json.dumps(s)), 200)
-        resp.headers["Content-Type"] = "application/json"
+        resp = flask.jsonify(message="Not enough information for {0}/{1}."
+                             .format(username, reponame))
+        resp.status_code = 404
         return resp
-    else:
-        return flask.jsonify(**s)
+    return flask.jsonify(**s)
 
 
 @frontend.route("/opt-out/<username>")
