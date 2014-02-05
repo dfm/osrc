@@ -11,15 +11,11 @@ New in version 2:
 Running the analysis
 --------------------
 
-To run the analysis, you'll need [Redis](http://redis.io) and a running
-`redis-server`. You'll also need
-[FLANN](http://www.cs.ubc.ca/~mariusm/index.php/FLANN/FLANN) including
-the Python bindings installed on your Python path. Then, install the other
-requirements using:
-
-```
-pip install -r requirements.txt
-```
+To run the analysis, you'll need to:
+* Install [HDF5](http://www.hdfgroup.org/HDF5/)
+* `pip install -r requirements.txt`
+* Install [FLANN](http://www.cs.ubc.ca/~mariusm/index.php/FLANN/FLANN) including the Python bindings onto your Python path.
+* Install [Redis](http://redis.io) and run `redis-server`
 
 Version 2 of the OSRC comes with a daemon `osrcd` designed to be run once a day to update the
 stats. To initialize the database with the event stream starting at the beinning of 2013, run:
