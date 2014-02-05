@@ -70,7 +70,7 @@ def user_view(username):
     # Get the stats.
     stats, optout = get_user_stats(username)
     if stats is None:
-        return flask.render_template("noinfo.html", optout=optout)
+        return flask.abort(404)
 
     # Load the list of adjectives.
     with flask.current_app.open_resource("adjectives.json") as f:
@@ -142,7 +142,7 @@ def stats_view(username):
 def repo_view(username, reponame):
     s = stats.get_repo_info(username, reponame)
     if s is None:
-        return flask.render_template("noinfo.html")
+        return flask.abort(404)
     return flask.render_template("repo.html", **s)
 
 
