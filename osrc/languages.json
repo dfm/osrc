@@ -3,9 +3,16 @@
     "Ruby": "Rubyist",
     "Go": "Gopher",
     "Java": "Javavore",
-    "C": "sysadmin",
+    "C": "low-level hacker",
+    "Shell": "sysadmin",
     "FORTRAN": "old-school hacker",
     "JavaScript": "JavaScripter",
-    "C++": "corporate slave",
-    "R": "useR"
+    "C++": "",
+    "R": "useR",
+    "Scala": "Scalaite",
+    "C#": "C Sharper",
+    "Ada": "DoD contractor",
+    "Haskell": "Haskeller"
+    "Clojure": "Clojurist",
+    "Rust": "Rustic"
 }
