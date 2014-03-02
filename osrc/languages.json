@@ -2,12 +2,11 @@
     "Python": "Pythonista",
     "Java": "Javavore",
     "Go": "Gopher",
-    "C": "systems programmer",
+    "C": "low-level hacker",
     "FORTRAN": "old-school hacker",
     "JavaScript": "JavaScripter",
-    "C++": "corporate slave",
     "R": "useR",
-    "Shell": "CLI-hacker",
+    "Shell": "sysadmin",
     "ActionScript": "Flasher",
     "AppleScript": "OSXer",
     "Arduino": "hardware hacker",
@@ -17,4 +16,10 @@
     "CSS": "web designer",
     "Perl": "regexer",
     "VHDL": "VHDLyzer",
+    "Scala": "Scalaite",
+    "C#": "C Sharper",
+    "Ada": "DoD contractor",
+    "Haskell": "Haskeller"
+    "Clojure": "Clojurist",
+    "Rust": "Rustic"
 }
