@@ -292,7 +292,7 @@ def get_comparison(user1, user2):
     return np.random.choice([d[0] for d in diffs], p=[p / norm for p in ps])
 
 
-def get_repo_info(username, reponame, maxusers=50, max_recommend=5):
+def get_repo_info(username, reponame, maxusers=5, max_recommend=5):
     # Normalize the repository name.
     repo = "{0}/{1}".format(username, reponame)
     rkey = format_key("social:repo:{0}".format(repo))
@@ -303,7 +303,7 @@ def get_repo_info(username, reponame, maxusers=50, max_recommend=5):
     pipe.exists(rkey)
     pipe.exists(recommend_key)
     pipe.zrevrange(recommend_key, 0, max_recommend-1)
-    pipe.zrevrange(rkey, 0, maxusers, withscores=True)
+    pipe.zrevrange(rkey, 0, maxusers-1, withscores=True)
     flag1, flag2, recommendations, users = pipe.execute()
     if not flag1:
         return None
@@ -320,7 +320,7 @@ def get_repo_info(username, reponame, maxusers=50, max_recommend=5):
         recommendations = pipe.execute()[-1]
 
     # Get the contributor names.
-    users = users[:5]
+    users = [(u, c) for u, c in users if int(c) > 1]
     [pipe.get(format_key("user:{0}:name".format(u))) for u, count in users]
     names = pipe.execute()
 
