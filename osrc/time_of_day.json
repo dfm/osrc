@@ -6,5 +6,5 @@
     {"times": [13, 18], "name": "in the afternoon"},
     {"times": [18, 21], "name": "in the evening"},
     {"times": [21, 23], "name": "late at night"}
-    {"times": [24, 0, 1], "name": "Midnight party hacker"}
+    {"times": [24, 0, 1], "name": "in Midnight party time"}
 ]
