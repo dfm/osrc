@@ -300,12 +300,13 @@ def get_repo_info(username, reponame, maxusers=5, max_recommend=5):
 
     # Get the list of users.
     pipe = get_pipeline()
+    pipe.exists(format_key("user:{0}:optout".format(username.lower())))
     pipe.exists(rkey)
     pipe.exists(recommend_key)
     pipe.zrevrange(recommend_key, 0, max_recommend-1)
     pipe.zrevrange(rkey, 0, maxusers-1, withscores=True)
-    flag1, flag2, recommendations, users = pipe.execute()
-    if not flag1:
+    flag0, flag1, flag2, recommendations, users = pipe.execute()
+    if flag0 or not flag1:
         return None
 
     if not flag2:
