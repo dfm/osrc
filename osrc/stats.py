@@ -117,7 +117,7 @@ def get_social_stats(username, max_connected=5, max_users=50):
         "connected_users": users[:nc],
         "similar_users": users[nc:],
         "repositories": [{"repo": repo, "count": int(count)}
-                         for repo, count in repos[:5]],
+                         for repo, count in repos[:5] if int(count) > 5],
     }
 
 
