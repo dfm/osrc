@@ -70,7 +70,7 @@ def user_view(username):
     # Get the stats.
     stats, optout = get_user_stats(username)
     if stats is None:
-        return flask.abort(404)
+        return flask.render_template("notfound.html")
 
     # Load the list of adjectives.
     with flask.current_app.open_resource("adjectives.json") as f:
