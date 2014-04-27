@@ -18,7 +18,7 @@
         {% if loop.last %} and {%endif %}<a href="/{{ user.username }}">{{ user.name }}</a>
         {%- if not loop.last -%}, {%- endif %}
         {%- endfor -%}.
-        {% else %}
+        {% elif contributors|length > 0 %}
         <strong>{{ repository }}</strong> is being built by <a href="/{{ contributors[0].username }}">{{ contributors[0].name }}</a>.
         {% endif %}
         Why don't you <a href="https://github.com/{{ repository }}" target="_blank">get involved</a>?

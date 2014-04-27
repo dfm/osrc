@@ -7,6 +7,7 @@ from __future__ import (division, print_function, absolute_import,
 __all__ = ["estimate_timezone"]
 
 import re
+import flask
 import logging
 import requests
 
@@ -15,7 +16,7 @@ from .database import get_pipeline, format_key
 tz_re = re.compile(r"<offset>([\-0-9]+)</offset>")
 goapi_url = "http://maps.googleapis.com/maps/api/geocode/json"
 mqapi_url = "http://open.mapquestapi.com/geocoding/v1/address"
-tzapi_url = "http://www.earthtools.org/timezone-1.1/{lat}/{lng}"
+tzapi_url = "https://maps.googleapis.com/maps/api/timezone/json"
 
 
 def _google_geocode(location):
@@ -31,6 +32,7 @@ def _google_geocode(location):
     params = {"address": location, "sensor": "false"}
     r = requests.get(goapi_url, params=params)
     if r.status_code != requests.codes.ok:
+        logging.error(r.content)
         return None
 
     data = r.json()
@@ -73,6 +75,9 @@ def _mq_geocode(location):
 
 
 def geocode(location):
+    if not len(location):
+        return None
+
     # Try Google first.
     try:
         loc = _google_geocode(location)
@@ -99,15 +104,18 @@ def estimate_timezone(location):
         return None
 
     # Resolve the timezone associated with these coordinates.
-    r = requests.get(tzapi_url.format(**loc))
+    params = dict(
+        key=flask.current_app.config["GOOGLE_KEY"],
+        location="{lat},{lng}".format(**loc),
+        timestamp=0,
+        sensor="false",
+    )
+    r = requests.get(tzapi_url, params=params)
     if r.status_code != requests.codes.ok:
         logging.warn("Timezone zone request failed:\n{0}".format(r.url))
         return None
 
-    # Parse the results to try to work out the time zone.
-    matches = tz_re.findall(r.text)
-    if len(matches):
-        return int(matches[0])
-
-    logging.warn("Timezone result formatting is broken.\n{0}".format(r.url))
-    return None
+    result = r.json().get("rawOffset", None)
+    if result is None:
+        return None
+    return int(result / (60*60))
