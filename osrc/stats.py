@@ -17,6 +17,16 @@ from .database import get_connection, get_pipeline, format_key
 
 ghapi_url = "https://api.github.com/users/{username}"
 
+# The default time-to-live for the temporary keys (1 week).
+DEFAULT_TTL = 2 * 24 * 60 * 60
+
+
+def _redis_execute(pipe, cmd, key, *args, **kwargs):
+    key = format_key(key)
+    r = getattr(pipe, cmd)(key, *args, **kwargs)
+    pipe.expire(key, DEFAULT_TTL)
+    return r
+
 
 def get_user_info(username):
     # Normalize the username.
@@ -64,11 +74,11 @@ def get_user_info(username):
                 timezone = tz
 
         # Update the cache.
-        pipe.set(format_key("user:{0}:name".format(user)), name)
-        pipe.set(format_key("user:{0}:etag".format(user)), etag)
-        pipe.set(format_key("user:{0}:gravatar".format(user)), gravatar)
+        _redis_execute(pipe, "set", "user:{0}:name".format(user), name)
+        _redis_execute(pipe, "set", "user:{0}:etag".format(user), etag)
+        _redis_execute(pipe, "set", "user:{0}:gravatar".format(user), gravatar)
         if timezone is not None:
-            pipe.set(format_key("user:{0}:tz".format(user)), timezone)
+            _redis_execute(pipe, "set", "user:{0}:tz".format(user), timezone)
         pipe.execute()
 
     return {

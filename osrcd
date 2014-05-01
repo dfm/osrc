@@ -26,6 +26,9 @@ from osrc.index import rebuild_index
 from osrc.database import get_pipeline
 from osrc.database import format_key as _format
 
+# The default time-to-live for every key (2 weeks).
+DEFAULT_TTL = 2 * 7 * 24 * 60 * 60
+
 # Make sure that the directory for the local caching of the data exists.
 local_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               "data")
@@ -43,6 +46,13 @@ archive_url = ("http://data.githubarchive.org/"
 
 # Regular expression for parsing filename formats.
 date_re = re.compile(r"([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]+)\.json.gz")
+
+
+def _redis_execute(pipe, cmd, key, *args, **kwargs):
+    key = _format(key)
+    r = getattr(pipe, cmd)(key, *args, **kwargs)
+    pipe.expire(key, DEFAULT_TTL)
+    return r
 
 
 def _fetch_one(year, month, day, n):
@@ -135,31 +145,31 @@ def process(filename):
                                        "PushEvent"]
 
             # Increment the global sum histograms.
-            pipe.incr(_format("total"), nevents)
-            pipe.hincrby(_format("day"), weekday, nevents)
-            pipe.hincrby(_format("hour"), hour, nevents)
-            pipe.zincrby(_format("user"), key, nevents)
-            pipe.zincrby(_format("event"), evttype, nevents)
+            _redis_execute(pipe, "incr", "total", nevents)
+            _redis_execute(pipe, "hincrby", "day", weekday, nevents)
+            _redis_execute(pipe, "hincrby", "hour", hour, nevents)
+            _redis_execute(pipe, "zincrby", "user", key, nevents)
+            _redis_execute(pipe, "zincrby", "event", evttype, nevents)
 
             # Event histograms.
-            pipe.hincrby(_format("event:{0}:day".format(evttype)), weekday,
-                         nevents)
-            pipe.hincrby(_format("event:{0}:hour".format(evttype)), hour,
-                         nevents)
+            _redis_execute(pipe, "hincrby", "event:{0}:day".format(evttype),
+                           weekday, nevents)
+            _redis_execute(pipe, "hincrby", "event:{0}:hour".format(evttype),
+                           hour, nevents)
 
             # User schedule histograms.
-            pipe.hincrby(_format("user:{0}:day".format(key)), weekday, nevents)
-            pipe.hincrby(_format("user:{0}:hour".format(key)), hour, nevents)
+            _redis_execute(pipe, "hincrby", "user:{0}:day".format(key),
+                           weekday, nevents)
+            _redis_execute(pipe, "hincrby", "user:{0}:hour".format(key),
+                           hour, nevents)
 
             # User event type histogram.
-            pipe.zincrby(_format("user:{0}:event".format(key)), evttype,
-                         nevents)
-            pipe.hincrby(_format("user:{0}:event:{1}:day".format(key,
-                                                                 evttype)),
-                         weekday, nevents)
-            pipe.hincrby(_format("user:{0}:event:{1}:hour".format(key,
-                                                                  evttype)),
-                         hour, nevents)
+            _redis_execute(pipe, "zincrby", "user:{0}:event".format(key),
+                           evttype, nevents)
+            _redis_execute(pipe, "hincrby", "user:{0}:event:{1}:day"
+                           .format(key, evttype), weekday, nevents)
+            _redis_execute(pipe, "hincrby", "user:{0}:event:{1}:hour"
+                           .format(key, evttype), hour, nevents)
 
             # Parse the name and owner of the affected repository.
             repo = event.get("repository", {})
@@ -167,31 +177,32 @@ def process(filename):
                                 repo.get("organization"))
             if owner and name:
                 repo_name = "{0}/{1}".format(owner, name)
-                pipe.zincrby(_format("repo"), repo_name, nevents)
+                _redis_execute(pipe, "zincrby", "repo", repo_name, nevents)
 
                 # Save the social graph.
-                pipe.zincrby(_format("social:user:{0}".format(key)),
-                             repo_name, nevents)
-                pipe.zincrby(_format("social:repo:{0}".format(repo_name)),
-                             key, nevents)
+                _redis_execute(pipe, "zincrby", "social:user:{0}".format(key),
+                               repo_name, nevents)
+                _redis_execute(pipe, "zincrby", "social:repo:{0}"
+                               .format(repo_name), key, nevents)
 
                 # Do we know what the language of the repository is?
                 language = repo.get("language")
                 if language:
                     # Which are the most popular languages?
-                    pipe.zincrby(_format("lang"), language, nevents)
+                    _redis_execute(pipe, "zincrby", "lang", language, nevents)
 
                     # Total number of pushes.
                     if evttype == "PushEvent":
-                        pipe.zincrby(_format("pushes:lang"), language, nevents)
+                        _redis_execute(pipe, "zincrby", "pushes:lang",
+                                       language, nevents)
 
-                    pipe.zincrby(_format("user:{0}:lang".format(key)),
-                                 language, nevents)
+                    _redis_execute(pipe, "zincrby", "user:{0}:lang"
+                                   .format(key), language, nevents)
 
                     # Who are the most important users of a language?
                     if contribution:
-                        pipe.zincrby(_format("lang:{0}:user".format(language)),
-                                     key, nevents)
+                        _redis_execute(pipe, "zincrby", "lang:{0}:user"
+                                       .format(language), key, nevents)
 
         pipe.execute()
 
