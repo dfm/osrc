@@ -18,7 +18,7 @@ from .database import get_connection, get_pipeline, format_key
 ghapi_url = "https://api.github.com/users/{username}"
 
 # The default time-to-live for the temporary keys (1 week).
-DEFAULT_TTL = 2 * 24 * 60 * 60
+DEFAULT_TTL = 7 * 24 * 60 * 60
 
 
 def _redis_execute(pipe, cmd, key, *args, **kwargs):
