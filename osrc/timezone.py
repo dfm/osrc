@@ -14,9 +14,9 @@ import requests
 from .database import get_pipeline, format_key
 
 tz_re = re.compile(r"<offset>([\-0-9]+)</offset>")
-goapi_url = "http://maps.googleapis.com/maps/api/geocode/json"
 mqapi_url = "http://open.mapquestapi.com/geocoding/v1/address"
 tzapi_url = "https://maps.googleapis.com/maps/api/timezone/json"
+goapi_url = "https://maps.googleapis.com/maps/api/geocode/json"
 
 
 def _google_geocode(location):
@@ -29,7 +29,11 @@ def _google_geocode(location):
         return None
 
     # Submit the request.
-    params = {"address": location, "sensor": "false"}
+    params = dict(
+        address=location,
+        sensor="false",
+        key=flask.current_app.config["GOOGLE_KEY"],
+    )
     r = requests.get(goapi_url, params=params)
     if r.status_code != requests.codes.ok:
         logging.error(r.content)
@@ -112,7 +116,7 @@ def estimate_timezone(location):
     )
     r = requests.get(tzapi_url, params=params)
     if r.status_code != requests.codes.ok:
-        logging.warn("Timezone zone request failed:\n{0}".format(r.url))
+        logging.error("Timezone zone request failed:\n{0}".format(r.url))
         return None
 
     result = r.json().get("rawOffset", None)

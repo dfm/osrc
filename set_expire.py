@@ -6,7 +6,7 @@ from __future__ import (division, print_function, absolute_import,
 
 import logging
 from itertools import imap
-from osrc.database import get_pipeline
+from osrc.database import get_pipeline, format_key
 
 # The default time-to-live for every key.
 DEFAULT_TTL = 2 * 7 * 24 * 60 * 60
@@ -43,6 +43,21 @@ def set_expire():
     pipe.execute()
 
 
+def del_connections():
+    pipe = get_pipeline()
+
+    # Get the list of all keys.
+    keys = pipe.keys(format_key("social:connection:*")).execute()[0]
+    n = float(len(keys))
+    print("Found {0:.0f} keys".format(n))
+
+    # Loop over the keys and deal with each one.
+    for i, key in enumerate(keys):
+        pipe.delete(key)
+
+    pipe.execute()
+
+
 if __name__ == "__main__":
     import argparse
     from osrc import create_app
@@ -54,6 +69,8 @@ if __name__ == "__main__":
                         help="The path to the local configuration file.")
     parser.add_argument("--log", default=None,
                         help="The path to the log file.")
+    parser.add_argument("--connections", action="store_true",
+                        help="Delete the connections?")
     args = parser.parse_args()
 
     largs = dict(level=logging.INFO,
@@ -67,4 +84,7 @@ if __name__ == "__main__":
 
     # Set up the app in a request context.
     with app.test_request_context():
-        set_expire()
+        if args.connections:
+            del_connections()
+        else:
+            set_expire()
