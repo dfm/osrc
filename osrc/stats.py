@@ -6,6 +6,7 @@ from __future__ import (division, print_function, absolute_import,
 
 __all__ = ["get_user_info", "get_social_stats", "get_usage_stats"]
 
+import re
 import json
 import flask
 import requests
@@ -17,8 +18,8 @@ from .database import get_connection, get_pipeline, format_key
 
 ghapi_url = "https://api.github.com/users/{username}"
 
-# The default time-to-live for the temporary keys (1 week).
-DEFAULT_TTL = 7 * 24 * 60 * 60
+# The default time-to-live for the temporary keys (2 days).
+DEFAULT_TTL = 2 * 24 * 60 * 60
 
 
 def _redis_execute(pipe, cmd, key, *args, **kwargs):
@@ -26,6 +27,32 @@ def _redis_execute(pipe, cmd, key, *args, **kwargs):
     r = getattr(pipe, cmd)(key, *args, **kwargs)
     pipe.expire(key, DEFAULT_TTL)
     return r
+
+
+def _is_robot():
+    """
+    Adapted from: https://github.com/jpvanhal/flask-split
+
+    """
+    robot_regex = r"""
+        (?i)\b(
+            Baidu|
+            Gigabot|
+            Googlebot|
+            libwww-perl|
+            lwp-trivial|
+            msnbot|
+            bingbot|
+            SiteUptime|
+            Slurp|
+            WordPress|
+            ZIBB|
+            ZyBorg|
+            YandexBot
+        )\b
+    """
+    user_agent = flask.request.headers.get("User-Agent", "")
+    return re.search(robot_regex, user_agent, flags=re.VERBOSE)
 
 
 def get_user_info(username):
@@ -46,40 +73,44 @@ def get_user_info(username):
     if name is not None:
         name = name.decode("utf-8")
 
-    # Work out the authentication headers.
-    auth = {}
-    client_id = flask.current_app.config.get("GITHUB_ID", None)
-    client_secret = flask.current_app.config.get("GITHUB_SECRET", None)
-    if client_id is not None and client_secret is not None:
-        auth["client_id"] = client_id
-        auth["client_secret"] = client_secret
+    # Return immediately if it's a robot.
+    if not _is_robot():
+        # Work out the authentication headers.
+        auth = {}
+        client_id = flask.current_app.config.get("GITHUB_ID", None)
+        client_secret = flask.current_app.config.get("GITHUB_SECRET", None)
+        if client_id is not None and client_secret is not None:
+            auth["client_id"] = client_id
+            auth["client_secret"] = client_secret
 
-    # Perform a conditional fetch on the database.
-    headers = {}
-    if etag is not None:
-        headers = {"If-None-Match": etag}
+        # Perform a conditional fetch on the database.
+        headers = {}
+        if etag is not None:
+            headers = {"If-None-Match": etag}
 
-    r = requests.get(ghapi_url.format(username=username), params=auth,
-                     headers=headers)
-    code = r.status_code
-    if code != 304 and code == requests.codes.ok:
-        data = r.json()
-        name = data.get("name") or data.get("login") or username
-        etag = r.headers["ETag"]
-        gravatar = data.get("gravatar_id", "none")
-        location = data.get("location", None)
-        if location is not None:
-            tz = estimate_timezone(location)
-            if tz is not None:
-                timezone = tz
+        r = requests.get(ghapi_url.format(username=username), params=auth,
+                         headers=headers)
+        code = r.status_code
+        if code != 304 and code == requests.codes.ok:
+            data = r.json()
+            name = data.get("name") or data.get("login") or username
+            etag = r.headers["ETag"]
+            gravatar = data.get("gravatar_id", "none")
+            location = data.get("location", None)
+            if location is not None:
+                tz = estimate_timezone(location)
+                if tz is not None:
+                    timezone = tz
 
-        # Update the cache.
-        _redis_execute(pipe, "set", "user:{0}:name".format(user), name)
-        _redis_execute(pipe, "set", "user:{0}:etag".format(user), etag)
-        _redis_execute(pipe, "set", "user:{0}:gravatar".format(user), gravatar)
-        if timezone is not None:
-            _redis_execute(pipe, "set", "user:{0}:tz".format(user), timezone)
-        pipe.execute()
+            # Update the cache.
+            _redis_execute(pipe, "set", "user:{0}:name".format(user), name)
+            _redis_execute(pipe, "set", "user:{0}:etag".format(user), etag)
+            _redis_execute(pipe, "set", "user:{0}:gravatar".format(user),
+                           gravatar)
+            if timezone is not None:
+                _redis_execute(pipe, "set", "user:{0}:tz".format(user),
+                               timezone)
+            pipe.execute()
 
     return {
         "username": username,
@@ -90,6 +121,13 @@ def get_user_info(username):
 
 
 def get_social_stats(username, max_connected=5, max_users=50):
+    if _is_robot():
+        return {
+            "connected_users": [],
+            "similar_users": [],
+            "repositories": [],
+        }
+
     r = get_connection()
     pipe = r.pipeline()
     user = username.lower()
@@ -101,7 +139,7 @@ def get_social_stats(username, max_connected=5, max_users=50):
     pipe.zrevrange(format_key("social:user:{0}".format(user)), 0, -1,
                    withscores=True)
     flag, connected_users, repos = pipe.execute()
-    if not flag:
+    if not _is_robot() and not flag:
         [pipe.zrevrange(format_key("social:repo:{0}".format(repo)), 0,
                         max_users)
          for repo, count in repos]
@@ -303,6 +341,9 @@ def get_comparison(user1, user2):
 
 
 def get_repo_info(username, reponame, maxusers=5, max_recommend=5):
+    if _is_robot():
+        return None
+
     # Normalize the repository name.
     repo = "{0}/{1}".format(username, reponame)
     rkey = format_key("social:repo:{0}".format(repo))

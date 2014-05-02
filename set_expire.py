@@ -10,7 +10,7 @@ from osrc.database import get_pipeline
 
 # The default time-to-live for every key.
 DEFAULT_TTL = 2 * 7 * 24 * 60 * 60
-TEMP_TTL = 7 * 24 * 60 * 60
+TEMP_TTL = 24 * 60 * 60
 
 
 def set_expire():
