@@ -66,6 +66,7 @@ def get_user_stats(username):
 
 
 @frontend.route("/<username>")
+@frontend.route("/<username>/")
 def user_view(username):
     # Get the stats.
     stats, optout = get_user_stats(username)
