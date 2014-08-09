@@ -26,8 +26,8 @@ from osrc.index import rebuild_index
 from osrc.database import get_pipeline
 from osrc.database import format_key as _format
 
-# The default time-to-live for every key (2 weeks).
-DEFAULT_TTL = 2 * 7 * 24 * 60 * 60
+# The default time-to-live for every key (4 weeks).
+DEFAULT_TTL = 4 * 7 * 24 * 60 * 60
 
 # Make sure that the directory for the local caching of the data exists.
 local_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),

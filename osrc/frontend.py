@@ -73,6 +73,11 @@ def user_view(username):
     if stats is None:
         return flask.render_template("noinfo.html"), 404
 
+    user_vector = stats["usage"]["week"]
+    norm = sqrt(sum([v * v for v in user_vector]))
+    if norm == 0:
+        return flask.render_template("noinfo.html"), 404
+
     # Load the list of adjectives.
     with flask.current_app.open_resource("adjectives.json") as f:
         adjectives = json.load(f)
@@ -105,9 +110,7 @@ def user_view(username):
         week_types = json.load(f)
     best_dist = -1
     week_type = None
-    user_vector = stats["usage"]["week"]
-    norm = 1.0 / sqrt(sum([v * v for v in user_vector]))
-    user_vector = [v*norm for v in user_vector]
+    user_vector = [v/norm for v in user_vector]
     for week in week_types:
         vector = week["vector"]
         norm = 1.0 / sqrt(sum([v * v for v in vector]))

@@ -18,7 +18,7 @@ from .database import get_connection, get_pipeline, format_key
 
 ghapi_url = "https://api.github.com/users/{username}"
 
-# The default time-to-live for the temporary keys (2 weeks).
+# The default time-to-live for the temporary keys (1 week).
 DEFAULT_TTL = 14 * 24 * 60 * 60
 
 
@@ -324,8 +324,8 @@ def get_comparison(user1, user2):
     week1 = map(lambda v: int(v[1]), raw[6].iteritems())
     week2 = map(lambda v: int(v[1]), raw[7].iteritems())
     mu1, mu2 = sum(week1) / 7.0, sum(week2) / 7.0
-    var1 = np.sqrt(sum(map(lambda v: (v - mu1) ** 2, week1)) / 7.0) / mu1
-    var2 = np.sqrt(sum(map(lambda v: (v - mu2) ** 2, week2)) / 7.0) / mu2
+    var1 = np.sqrt(sum(map(lambda v: (v - mu1) ** 2, week1)) / 7.0) / (mu1+1)
+    var2 = np.sqrt(sum(map(lambda v: (v - mu2) ** 2, week2)) / 7.0) / (mu2+1)
     if var1 or var2 and var1 != var2:
         if var1 > var2:
             diffs.append(("has a more consistent weekly schedule", var2/var1))
@@ -335,6 +335,8 @@ def get_comparison(user1, user2):
     # Compute the relative probabilities of the comparisons and normalize.
     ps = map(lambda v: v[1], diffs)
     norm = sum(ps)
+    if norm == 0 and len(diffs):
+        return diffs[0][0]
 
     # Choose a random description weighted by the probabilities.
     return np.random.choice([d[0] for d in diffs], p=[p / norm for p in ps])
