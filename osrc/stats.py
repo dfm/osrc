@@ -18,7 +18,7 @@ from .database import get_connection, get_pipeline, format_key
 
 ghapi_url = "https://api.github.com/users/{username}"
 
-# The default time-to-live for the temporary keys (1 week).
+# The default time-to-live for the temporary keys (2 weeks).
 DEFAULT_TTL = 14 * 24 * 60 * 60
 
 
@@ -63,10 +63,10 @@ def get_user_info(username):
     pipe = get_pipeline()
     pipe.get(format_key("user:{0}:name".format(user)))
     pipe.get(format_key("user:{0}:etag".format(user)))
-    pipe.get(format_key("user:{0}:gravatar".format(user)))
+    pipe.get(format_key("user:{0}:avatar".format(user)))
     pipe.get(format_key("user:{0}:tz".format(user)))
     pipe.exists(format_key("user:{0}:optout".format(user)))
-    name, etag, gravatar, timezone, optout = pipe.execute()
+    name, etag, avatar, timezone, optout = pipe.execute()
     if optout:
         return None, True
 
@@ -84,7 +84,7 @@ def get_user_info(username):
             auth["client_secret"] = client_secret
 
         # Perform a conditional fetch on the database.
-        headers = {}
+        headers = {"Accept": "application/vnd.github.v3+json"}
         if etag is not None:
             headers = {"If-None-Match": etag}
 
@@ -95,7 +95,7 @@ def get_user_info(username):
             data = r.json()
             name = data.get("name") or data.get("login") or username
             etag = r.headers["ETag"]
-            gravatar = data.get("gravatar_id", "none")
+            avatar = data.get("avatar_url", None)
             location = data.get("location", None)
             if location is not None:
                 tz = estimate_timezone(location)
@@ -105,8 +105,8 @@ def get_user_info(username):
             # Update the cache.
             _redis_execute(pipe, "set", "user:{0}:name".format(user), name)
             _redis_execute(pipe, "set", "user:{0}:etag".format(user), etag)
-            _redis_execute(pipe, "set", "user:{0}:gravatar".format(user),
-                           gravatar)
+            _redis_execute(pipe, "set", "user:{0}:avatar".format(user),
+                           avatar)
             if timezone is not None:
                 _redis_execute(pipe, "set", "user:{0}:tz".format(user),
                                timezone)
@@ -115,7 +115,7 @@ def get_user_info(username):
     return {
         "username": username,
         "name": name if name is not None else username,
-        "gravatar": gravatar if gravatar is not None else "none",
+        "avatar": avatar,
         "timezone": int(timezone) if timezone is not None else None,
     }, False
 
@@ -339,7 +339,7 @@ def get_comparison(user1, user2):
         return diffs[0][0]
 
     # Choose a random description weighted by the probabilities.
-    return np.random.choice([d[0] for d in diffs], p=[p / norm for p in ps])
+    return np.random.choice([di[0] for di in diffs], p=[p / norm for p in ps])
 
 
 def get_repo_info(username, reponame, maxusers=5, max_recommend=5):

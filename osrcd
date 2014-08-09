@@ -26,8 +26,8 @@ from osrc.index import rebuild_index
 from osrc.database import get_pipeline
 from osrc.database import format_key as _format
 
-# The default time-to-live for every key (4 weeks).
-DEFAULT_TTL = 4 * 7 * 24 * 60 * 60
+# The default time-to-live for every key (approx 6 months).
+DEFAULT_TTL = 6 * 30 * 24 * 60 * 60
 
 # Make sure that the directory for the local caching of the data exists.
 local_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -173,8 +173,7 @@ def process(filename):
 
             # Parse the name and owner of the affected repository.
             repo = event.get("repository", {})
-            owner, name, org = (repo.get("owner"), repo.get("name"),
-                                repo.get("organization"))
+            owner, name = repo.get("owner"), repo.get("name")
             if owner and name:
                 repo_name = "{0}/{1}".format(owner, name)
                 _redis_execute(pipe, "zincrby", "repo", repo_name, nevents)
