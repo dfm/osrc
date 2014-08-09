@@ -5,7 +5,9 @@
 <div id="profile">
     <div class="profile-badge clearfix">
         <a href="https://github.com/{{ username }}" target="_blank">
+            {% if avatar %}
             <img height="50" width="50" alt="{{ username }}" class="avatar" src="{{ avatar }}&s=220">
+            {% endif %}
             <span class="profile-name">{{ name }}</span>
         </a>
     </div>
