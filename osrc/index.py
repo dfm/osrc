@@ -107,7 +107,7 @@ def get_neighbors(name, num=5):
     Find the K nearest neighbors to a user in "behavior space".
 
     :param name: The GitHub username.
-    :param num: (optioanl; default: 5) The number of neighbors to find.
+    :param num: (optional; default: 5) The number of neighbors to find.
 
     """
     # Get the vector for this user.
