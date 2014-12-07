@@ -68,7 +68,7 @@
         <p>
         It seems like {{ name|firstname }} is—or should be—friends with
         <a href="{{ url_for(".user_view", username=connected_users[0].username) }}">{{ connected_users[0].name }}</a>.
-        With this in mind, it's worth noting that
+        With this in mind, it's worth nothing that
         {% if connected_users[0].name|firstname != name|firstname %}
         {{ connected_users[0].name|firstname }}
         {% else %}
