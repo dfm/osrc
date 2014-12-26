@@ -92,7 +92,7 @@
         <p>
         These days, {{ name|firstname }} is most actively contributing to the repositories:
         {% for repo in repositories %}
-        {% if loop.last %} and {% endif %}<a href="/{{ repo.repo }}">{{ repo.repo }}</a>{%- if not loop.last -%},{% endif %}
+        {% if loop.last %} and {% endif %}<a href="https://github.com/{{ repo.repo }}">{{ repo.repo }}</a>{%- if not loop.last -%},{% endif %}
         {%- endfor -%}.
         </p>
         {% endif %}
