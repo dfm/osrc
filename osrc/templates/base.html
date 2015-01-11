@@ -44,7 +44,10 @@
 
         function hide_banner () {
             $("#banner").hide();
-            document.cookie = "osrc_promise=true";
+            var date = new Date();
+            date.setTime(date.getTime()+(30*24*60*60*1000));
+            var expires = "; expires="+date.toGMTString();
+            document.cookie = "osrc_promise=true" + expires + "; path=/; domain=dfm.io";
             return false;
         }
 
