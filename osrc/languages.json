@@ -21,5 +21,9 @@
     "Ada": "DoD contractor",
     "Haskell": "Haskeller",
     "Clojure": "Clojurist",
-    "Rust": "Rustic"
+    "Rust": "Rustic",
+    "Swift": "Swiftie",
+    "Ruby": "Rubatier",
+    "F#": "F Sharper",
+    "Lua": "Lualer"
 }
