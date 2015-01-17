@@ -18,7 +18,7 @@ To run the analysis, you'll need to:
 * Install [Redis](http://redis.io) and run `redis-server`
 
 Version 2 of the OSRC comes with a daemon `osrcd` designed to be run once a day to update the
-stats. To initialize the database with the event stream starting at the beinning of 2013, run:
+stats. To initialize the database with the event stream starting at the beginning of 2013, run:
 
 ```
 ./osrcd --since 2013-01-01
