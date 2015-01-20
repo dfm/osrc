@@ -1,5 +1,17 @@
 @import url(https://fonts.googleapis.com/css?family=Lato:100,300,400,700,900,300italic);
 
+*,
+*:before,
+*:after {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
 html {
     background: #ECF0F1;
 }
@@ -78,7 +90,7 @@ code {
 }
 
 .header, .container {
-    width: 800px;
+    max-width: 800px;
     margin: 0 auto;
 }
 
@@ -157,24 +169,25 @@ code {
 
 .profile-badge {
     line-height: 1;
-    text-align: center;
+}
+
+.profile-badge a {
+    text-decoration: none;
 }
 
 .avatar {
     float: left;
-    display: inline-block;
     border: 1px solid #333;
     border-radius: 3px;
-    margin-right: 20px;
 }
 
 .profile-name {
-    float: left;
     font-weight: 100;
-    display: inline-block;
     font-size: 50px;
     line-height: 50px;
     color: #333;
+    display: block;
+    margin-left: 70px;
 }
 
 a .profile-name {
@@ -212,6 +225,11 @@ p, li {
     margin: 10px 20px 0;
 }
 
+#day svg {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+
 rect {
     fill-opacity: .8;
 }
@@ -242,7 +260,8 @@ input {
     font-size: 18pt;
     font-weight: 300;
     color: #222;
-    width: 600px;
+    width: 100%;
+    max-width: 600px;
     padding: 10px 12px;
     border-radius: 6px;
     border: 1px solid #ccc;
@@ -257,7 +276,7 @@ input:focus {
 .splash-text {
     font-size: 18pt;
     font-weight: 300;
-    width: 600px;
+    max-width: 600px;
     line-height: 1.4;
     margin: 20px auto;
 }
@@ -282,4 +301,23 @@ input:focus {
     line-height: 1.4;
     text-align: center;
     font-style: italic;
+}
+
+@media (max-width: 840px) {
+    .header {
+        margin-left: 20px;
+        margin-right: 20px;
+    }
+    .header-title {
+        float: inherit;
+    }
+    #fusion_ad {
+        float: none;
+        text-align: left;
+        max-width: 100%;
+        min-height: 120px;
+    }
+    .container {
+        padding: 0 20px;
+    }
 }
