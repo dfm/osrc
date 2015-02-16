@@ -91,6 +91,67 @@ def fetch(year, month, day):
     jobs = [gevent.spawn(_fetch_one, year, month, day, n) for n in range(24)]
     gevent.joinall(jobs)
 
+def extract_data(event):
+    """
+    Returns None if the actor cannot be determined (for anonymous or non-User events)
+    Returns a Dict containing the following keys otherwise:
+       "actor": github username
+       "evttype": Event type (e.g. "IssuesEvent", "PullRequestEvent", "PushEvent")
+       "repo_name": "<owner>/<name>", or None if the repo info can't be determined
+       "repo_language": primary language, or None if it cannot be determined
+    """
+
+    event_data = dict()
+
+    if "id" in event:
+        # Event API data, > 2015-01-01
+        actor = event.get("actor", {})
+        repo = event.get("repo", {})
+        event_data["actor"] = actor.get("login")
+        if not event_data["actor"]:
+            # This was probably an anonymous event (like a gist event)
+            # or an organization event.
+            return None
+        
+        event_data["evttype"] = event.get("type")
+        event_data["repo_name"] = repo.get("name")
+        event_data["repo_language"] = None # Mostly unavailable in Event API data :(
+
+        # PullRequestEvent
+        if event_data["evttype"] == "PullRequestEvent":
+            event_data["repo_language"] = event.get("payload",{}).get("pull_request",{}).get("base",{}).get("repo",{}).get("language")
+
+        # IssuesEvent :(
+
+        # PushEvent :(
+
+    else:
+        # Old timeline API, < 2015-01-01
+
+        # Get the user involved and skip if there isn't one.
+        event_data["actor"] = event["actor"]
+        attrs = event.get("actor_attributes", {})
+        if not event_data["actor"] or attrs.get("type") != "User":
+            # This was probably an anonymous event (like a gist event)
+            # or an organization event.
+            return None
+
+        # Get the type of event.
+        event_data["evttype"] = event["type"]
+
+        # Parse the name and owner of the affected repository.
+        repo = event.get("repository", {})
+        
+        # Do we know what the language of the repository is?
+        event_data["repo_language"] = repo.get("language")
+        
+        event_data["repo_name"] = None
+        owner, name = repo.get("owner"), repo.get("name")
+        if owner and name:
+            event_data["repo_name"] = "{0}/{1}".format(owner, name)
+
+    return event_data
+
 
 def process(filename):
     """
@@ -125,24 +186,27 @@ def process(filename):
                              .format(n, year, month, day, hour))
                 continue
 
-            # Get the user involved and skip if there isn't one.
-            actor = event["actor"]
-            attrs = event.get("actor_attributes", {})
-            if actor is None or attrs.get("type") != "User":
-                # This was probably an anonymous event (like a gist event)
-                # or an organization event.
+            event_data = extract_data(event)
+            if event_data is None:
                 continue
+
+            # Get the user involved
+            actor = event_data.get("actor")
 
             # Normalize the user name.
             key = actor.lower()
 
             # Get the type of event.
-            evttype = event["type"]
+            evttype = event_data.get("type")
             nevents = 1
 
             # Can this be called a "contribution"?
-            contribution = evttype in ["IssuesEvent", "PullRequestEvent",
-                                       "PushEvent"]
+            contribution = evttype in ["IssuesEvent", "PullRequestEvent", "PushEvent"]
+
+            # Parse the name and owner of the affected repository.
+            repo_name = event_data.get("repo_name")
+            # Do we know what the language of the repository is?
+            language = event_data.get("repo_language")
 
             # Increment the global sum histograms.
             _redis_execute(pipe, "incr", "total", nevents)
@@ -171,11 +235,7 @@ def process(filename):
             _redis_execute(pipe, "hincrby", "user:{0}:event:{1}:hour"
                            .format(key, evttype), hour, nevents)
 
-            # Parse the name and owner of the affected repository.
-            repo = event.get("repository", {})
-            owner, name = repo.get("owner"), repo.get("name")
-            if owner and name:
-                repo_name = "{0}/{1}".format(owner, name)
+            if repo_name:
                 _redis_execute(pipe, "zincrby", "repo", repo_name, nevents)
 
                 # Save the social graph.
@@ -185,7 +245,6 @@ def process(filename):
                                .format(repo_name), key, nevents)
 
                 # Do we know what the language of the repository is?
-                language = repo.get("language")
                 if language:
                     # Which are the most popular languages?
                     _redis_execute(pipe, "zincrby", "lang", language, nevents)
