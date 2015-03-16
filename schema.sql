@@ -1,3 +1,11 @@
+DROP TABLE IF EXISTS osrc_status CASCADE;
+CREATE TABLE osrc_status (
+    status_id      integer PRIMARY KEY,
+    last_id        bigint,
+    last_updated   timestamp,
+    etag           text
+);
+
 DROP TABLE IF EXISTS gh_users CASCADE;
 CREATE TABLE gh_users (
     user_id        bigint PRIMARY KEY,

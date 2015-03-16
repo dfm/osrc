@@ -6,7 +6,7 @@ from __future__ import division, print_function
 __all__ = []
 
 import re
-import json
+import time
 import psycopg2
 import requests
 from datetime import datetime
@@ -42,11 +42,41 @@ def parse_date(dt):
 
 
 def get_event_list():
-    with open("events.json", "r") as f:
-        return json.load(f)
-    # events = gh_request("/events").json()
-    # with open("events.json", "w") as f:
-    #     json.dump(events, f)
+    etag, last_id = None, 0
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("select etag,last_id from osrc_status where status_id=1")
+        r = c.fetchone()
+        if r is not None:
+            etag, last_id = r
+
+    while True:
+        strt = time.time()
+        r = gh_request("/events", etag=etag, per_page=100)
+        count = 0
+        if r.status_code != 304:
+            # Loop over the events and yield them until we hit the last id.
+            events = r.json()
+            for evt in events:
+                if int(evt["id"]) <= last_id:
+                    break
+                yield evt
+                count += 1
+            print(count)
+
+            # Update the etag and modified stuff.
+            etag = r.headers["etag"]
+            last_id = int(events[0]["id"])
+            with get_db() as conn:
+                c = conn.cursor()
+                _upsert(c, "osrc_status",
+                        "set etag=%s,last_updated=%s,last_id=%s",
+                        "status_id=%s", "etag,last_updated,last_id,status_id",
+                        r.headers["etag"], datetime.now(), last_id, 1)
+
+        dt = int(r.headers["x-poll-interval"]) - (time.time() - strt)
+        print(dt)
+        time.sleep(dt)
 
 
 def _upsert(c, tbl, up_cmd, where, ins_cmd, *args):
@@ -100,52 +130,8 @@ def parse_event(event):
                 "user_id=%s and evttype=%s and hour=%s",
                 "user_id,evttype,hour",
                 user["id"], evttype, hour)
-    # return
-
-    # # Get the repository Etag if it exists.
-    # etag = None
-    # with get_db() as conn:
-    #     c = conn.cursor()
-    #     c.execute("select etag from gh_repos where repo_id=%s",
-    #               (event["repo"]["id"], ))
-    #     r = c.fetchone()
-    #     if r is not None:
-    #         etag = r[0]
-
-    # # Download the full repository record.
-    # r = gh_request("/repos/" + event["repo"]["name"], etag=etag)
-
-    # # The repository is currently unchanged.
-    # if r.status_code == 304:
-    #     print("Unchanged")
-    #     return
-
-    # # Parse the repository record.
-    # repo = r.json()
-    # with get_db() as conn:
-    #     c = conn.cursor()
-
-    #     # Upsert the owner entry.
-    #     owner = repo["owner"]
-    #     _upsert(c, "gh_users", "set login=%s,user_type=%s,avatar_url=%s",
-    #             "user_id=%s", "login,user_type,user_id",
-    #             owner["login"], owner["type"], owner["avatar_url"],
-    #             owner["id"])
-
-    #     # Upsert the repo entry.
-    #     etag = r.headers["etag"]
-    #     _upsert(c, "gh_repos",
-    #             "set owner_id=%s,name=%s,description=%s,language=%s,"
-    #             "star_count=%s,watcher_count=%s,fork_count=%s,issue_count=%s,"
-    #             "updated=%s,etag=%s", "repo_id=%s",
-    #             "owner_id,name,description,language,star_count,watcher_count,"
-    #             "fork_count,issue_count,updated,etag,repo_id",
-    #             owner["id"], repo["name"], repo["description"],
-    #             repo["language"], repo["stargazers_count"],
-    #             repo["subscribers_count"], repo["forks_count"],
-    #             repo["open_issues_count"], parse_date(repo["updated_at"]),
-    #             etag, repo["id"])
 
 
 if __name__ == "__main__":
-    map(parse_event, get_event_list())
+    events = get_event_list()
+    map(parse_event, events)
