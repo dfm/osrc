@@ -151,7 +151,7 @@
 
         {% if usage.languages|length > 1 %}
         <p id="languages">
-        {{ name|firstname }} has contributed to repositories in {{ usage.languages|length }}
+        {{ name|firstname }} has contributed to repositories in at least {{ usage.languages|length }}
         languages. In particular, {{ name|firstname }} seems to be a pretty serious
         <strong>{{ usage.languages[0].language }}</strong> expert
         {%- if (usage.languages[0].count-usage.languages[1].count)/usage.languages[0].count < 0.5 %}
@@ -162,7 +162,7 @@
         {%- for i, lang in enumerate(usage.languages[:5]) -%}
         {% if loop.last %} and{% endif %}
         <span class="evttype" data-ind="{{ i }}">{{ lang.language }}</span>{%- if not loop.last -%},{%- endif -%}
-        {%- endfor %}.
+        {%- endfor %} prior to 2015.
         </p>
         <div class="hist-block">
             <div id="lang-chart"></div>

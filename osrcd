@@ -126,12 +126,15 @@ def process(filename):
                 continue
 
             # Get the user involved and skip if there isn't one.
-            actor = event["actor"]
-            attrs = event.get("actor_attributes", {})
-            if actor is None or attrs.get("type") != "User":
-                # This was probably an anonymous event (like a gist event)
-                # or an organization event.
-                continue
+            if year >= 2015:
+                actor = event["actor"]["login"]
+            else:
+                actor = event["actor"]
+                attrs = event.get("actor_attributes", {})
+                if actor is None or attrs.get("type") != "User":
+                    # This was probably an anonymous event (like a gist event)
+                    # or an organization event.
+                    continue
 
             # Normalize the user name.
             key = actor.lower()
@@ -172,10 +175,16 @@ def process(filename):
                            .format(key, evttype), hour, nevents)
 
             # Parse the name and owner of the affected repository.
-            repo = event.get("repository", {})
-            owner, name = repo.get("owner"), repo.get("name")
-            if owner and name:
-                repo_name = "{0}/{1}".format(owner, name)
+            if year >= 2015:
+                repo_name = event["repo"]["name"]
+            else:
+                repo = event.get("repository", {})
+                owner, name = repo.get("owner"), repo.get("name")
+                if owner and name:
+                    repo_name = "{0}/{1}".format(owner, name)
+                else:
+                    repo_name = None
+            if repo_name:
                 _redis_execute(pipe, "zincrby", "repo", repo_name, nevents)
 
                 # Save the social graph.
@@ -185,7 +194,7 @@ def process(filename):
                                .format(repo_name), key, nevents)
 
                 # Do we know what the language of the repository is?
-                language = repo.get("language")
+                language = repo.get("language") if year < 2015 else None
                 if language:
                     # Which are the most popular languages?
                     _redis_execute(pipe, "zincrby", "lang", language, nevents)
