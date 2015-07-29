@@ -3,14 +3,12 @@
 
 from __future__ import division, print_function
 
-import io
 import os
 import time
 import json
 import gzip
 import argparse
 import requests
-from multiprocessing import Pool
 from datetime import date, timedelta
 
 try:
@@ -37,6 +35,7 @@ def process_one(fh):
         for line in f:
             parse_event(json.loads(line.decode("utf-8")))
             count += 1
+    db.session.commit()
     print("... processed {0} events in {1} seconds"
           .format(count, time.time() - strt))
 
@@ -81,12 +80,6 @@ def _process_pull_request_comment(payload):
     _process_pull_request(payload)
 
 
-def _download_one(url):
-    r = requests.get(url)
-    r.raise_for_status()
-    return r.content
-
-
 event_types = dict(
     ForkEvent=_process_fork,
     PullRequestEvent=_process_pull_request,
@@ -116,7 +109,6 @@ if __name__ == "__main__":
                     print("Processing: {0}".format(fn))
                     process_one(open(fn, "rb"))
             else:
-                pool = Pool()
                 today = date.today()
                 if args.since is None:
                     since = today - timedelta(1)
@@ -129,9 +121,12 @@ if __name__ == "__main__":
                                  "day": since.day}
                     urls = (archive_url.format(**(dict(base_date, n=n)))
                             for n in range(24))
-                    for url, c in zip(urls, pool.map(_download_one, urls)):
+                    for n in range(24):
+                        url = archive_url.format(**(dict(base_date, n=n)))
                         print("Processing: {0}".format(url))
-                        process_one(io.BytesIO(c))
+                        r = requests.get(url, stream=True)
+                        r.raise_for_status()
+                        process_one(r.raw)
 
                     since += timedelta(1)
 
