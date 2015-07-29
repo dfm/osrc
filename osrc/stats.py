@@ -1,397 +1,97 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import (division, print_function, absolute_import,
-                        unicode_literals)
+__all__ = ["user_stats", "repo_stats"]
 
-__all__ = ["get_user_info", "get_social_stats", "get_usage_stats"]
-
-import re
-import json
 import flask
-import requests
-import numpy as np
+from sqlalchemy import func, desc
+from collections import defaultdict
 
-from .index import get_neighbors
-from .timezone import estimate_timezone
-from .database import get_connection, get_pipeline, format_key
-
-ghapi_url = "https://api.github.com/users/{username}"
-
-# The default time-to-live for the temporary keys (2 weeks).
-DEFAULT_TTL = 14 * 24 * 60 * 60
+from . import github
+from .models import db, Event, Repo, User
 
 
-def _redis_execute(pipe, cmd, key, *args, **kwargs):
-    key = format_key(key)
-    r = getattr(pipe, cmd)(key, *args, **kwargs)
-    pipe.expire(key, DEFAULT_TTL)
-    return r
+def user_stats(username):
+    user = github.get_user(username)
+    if not user.active:
+        return flask.abort(404)
+
+    # Get the repo stats.
+    repo_counts = db.session.query(Repo, func.count()) \
+        .select_from(Event) \
+        .filter(Event.user_id == user.id) \
+        .join(Repo) \
+        .group_by(Repo.id) \
+        .order_by(desc(func.count())) \
+        .all()
+    langs = defaultdict(int)
+    for r, c in repo_counts:
+        if r.language is None:
+            continue
+        langs[r.language.name] += c
+
+    # Get the week histogram.
+    week_hist = defaultdict(lambda: list([0 for _ in range(7)]))
+    for _, k, t, v in db.session.query(
+        Event.user_id, Event.day, Event.event_type, func.count(),
+    ).filter_by(user_id=user.id).group_by(
+            Event.user_id, Event.event_type, Event.day):
+        week_hist[t][k] = v
+
+    # Get the data histogram.
+    day_hist = defaultdict(lambda: list([0 for _ in range(24)]))
+    for _, k, t, v in db.session.query(
+        Event.user_id, Event.hour, Event.event_type, func.count(),
+    ).filter_by(user_id=user.id).group_by(
+            Event.user_id, Event.event_type, Event.hour).all():
+        day_hist[t][k] = v
+
+    # Build the results dictionary.
+    return dict(
+        user.basic_dict(),
+        week=dict(week_hist),
+        day=dict(day_hist),
+        languages=dict(langs),
+        repos=[{"name": r.fullname, "count": c} for r, c in repo_counts[:5]],
+    )
 
 
-def _is_robot():
-    """
-    Adapted from: https://github.com/jpvanhal/flask-split
+def repo_stats(username, reponame):
+    repo = github.get_repo("{0}/{1}".format(username, reponame))
+    if not repo.active or not repo.owner.active:
+        return flask.abort(404)
 
-    """
-    robot_regex = r"""
-        (?i)\b(
-            Baidu|
-            Gigabot|
-            Googlebot|
-            libwww-perl|
-            lwp-trivial|
-            msnbot|
-            bingbot|
-            SiteUptime|
-            Slurp|
-            WordPress|
-            ZIBB|
-            ZyBorg|
-            YandexBot
-        )\b
-    """
-    user_agent = flask.request.headers.get("User-Agent", "")
-    return re.search(robot_regex, user_agent, flags=re.VERBOSE)
+    # Get the user stats.
+    user_counts = db.session.query(User, func.count()) \
+        .select_from(Event) \
+        .filter(Event.repo_id == repo.id) \
+        .join(User) \
+        .group_by(User.id) \
+        .order_by(desc(func.count())) \
+        .limit(5) \
+        .all()
 
+    # Get the week histogram.
+    week_hist = defaultdict(lambda: list([0 for _ in range(7)]))
+    for _, k, t, v in db.session.query(
+        Event.repo_id, Event.day, Event.event_type, func.count(),
+    ).filter_by(repo_id=repo.id).group_by(
+            Event.repo_id, Event.event_type, Event.day):
+        week_hist[t][k] = v
 
-def get_user_info(username):
-    # Normalize the username.
-    user = username.lower()
+    # Get the data histogram.
+    day_hist = defaultdict(lambda: list([0 for _ in range(24)]))
+    for _, k, t, v in db.session.query(
+        Event.repo_id, Event.hour, Event.event_type, func.count(),
+    ).filter_by(repo_id=repo.id).group_by(
+            Event.repo_id, Event.event_type, Event.hour).all():
+        day_hist[t][k] = v
 
-    # Get the cached information.
-    pipe = get_pipeline()
-    pipe.get(format_key("user:{0}:name".format(user)))
-    pipe.get(format_key("user:{0}:etag".format(user)))
-    pipe.get(format_key("user:{0}:avatar".format(user)))
-    pipe.get(format_key("user:{0}:tz".format(user)))
-    pipe.exists(format_key("user:{0}:optout".format(user)))
-    name, etag, avatar, timezone, optout = pipe.execute()
-    if optout:
-        return None, True
-
-    if name is not None:
-        name = name.decode("utf-8")
-
-    # Return immediately if it's a robot.
-    if not _is_robot():
-        # Work out the authentication headers.
-        auth = {}
-        client_id = flask.current_app.config.get("GITHUB_ID", None)
-        client_secret = flask.current_app.config.get("GITHUB_SECRET", None)
-        if client_id is not None and client_secret is not None:
-            auth["client_id"] = client_id
-            auth["client_secret"] = client_secret
-
-        # Perform a conditional fetch on the database.
-        headers = {"Accept": "application/vnd.github.v3+json"}
-        if etag is not None:
-            headers = {"If-None-Match": etag}
-
-        r = requests.get(ghapi_url.format(username=username), params=auth,
-                         headers=headers)
-        code = r.status_code
-        if code != 304 and code == requests.codes.ok:
-            data = r.json()
-            name = data.get("name") or data.get("login") or username
-            etag = r.headers["ETag"]
-            avatar = data.get("avatar_url", None)
-            location = data.get("location", None)
-            if location is not None:
-                tz = estimate_timezone(location)
-                if tz is not None:
-                    timezone = tz
-
-            # Update the cache.
-            _redis_execute(pipe, "set", "user:{0}:name".format(user), name)
-            _redis_execute(pipe, "set", "user:{0}:etag".format(user), etag)
-            _redis_execute(pipe, "set", "user:{0}:avatar".format(user),
-                           avatar)
-            if timezone is not None:
-                _redis_execute(pipe, "set", "user:{0}:tz".format(user),
-                               timezone)
-            pipe.execute()
-
-    return {
-        "username": username,
-        "name": name if name is not None else username,
-        "avatar": avatar,
-        "timezone": int(timezone) if timezone is not None else None,
-    }, False
-
-
-def get_social_stats(username, max_connected=5, max_users=50):
-    if _is_robot():
-        return {
-            "connected_users": [],
-            "similar_users": [],
-            "repositories": [],
-        }
-
-    r = get_connection()
-    pipe = r.pipeline()
-    user = username.lower()
-
-    # Find the connected users.
-    connection_key = format_key("social:connection:{0}".format(user))
-    pipe.exists(connection_key)
-    pipe.zrevrange(connection_key, 0, max_connected-1)
-    pipe.zrevrange(format_key("social:user:{0}".format(user)), 0, -1,
-                   withscores=True)
-    flag, connected_users, repos = pipe.execute()
-    if not _is_robot() and not flag:
-        [pipe.zrevrange(format_key("social:repo:{0}".format(repo)), 0,
-                        max_users)
-         for repo, count in repos]
-        users = pipe.execute()
-        [pipe.zincrby(connection_key, u, 1) for l in users for u in l
-         if u != user]
-        pipe.expire(connection_key, 172800)
-        pipe.zrevrange(connection_key, 0, max_connected-1)
-        connected_users = pipe.execute()[-1]
-
-    # Get the nearest neighbors in behavior space.
-    similar_users = get_neighbors(user)
-    [pipe.get(format_key("user:{0}:name".format(u)))
-     for u in connected_users + similar_users]
-    names = pipe.execute()
-
-    # Parse all the users.
-    users = [{"username": u, "name": n.decode("utf-8") if n is not None else u}
-             for u, n in zip(connected_users+similar_users, names)]
-
-    nc = len(connected_users)
-    return {
-        "connected_users": users[:nc],
-        "similar_users": users[nc:],
-        "repositories": [{"repo": repo, "count": int(count)}
-                         for repo, count in repos[:5] if int(count) > 5],
-    }
-
-
-def make_histogram(data, size, offset=0):
-    result = [0] * size
-    for k, v in data:
-        val = float(v)
-        i = int(k) + offset
-        while (i < 0):
-            i += size
-        result[i % size] = val
-    return result
-
-
-def get_usage_stats(username):
-    user = username.lower()
-    pipe = get_pipeline()
-
-    # Get the total number of events performed by this user.
-    pipe.zscore(format_key("user"), user)
-
-    # The timezone estimate.
-    pipe.get(format_key("user:{0}:tz".format(user)))
-
-    # Get the top <= 5 most common events.
-    pipe.zrevrangebyscore(format_key("user:{0}:event".format(user)),
-                          "+inf", 0, 0, 5, withscores=True)
-
-    # The average daily and weekly schedules.
-    pipe.hgetall(format_key("user:{0}:hour".format(user)))
-    pipe.hgetall(format_key("user:{0}:day".format(user)))
-
-    # The language stats.
-    pipe.zrevrange(format_key("user:{0}:lang".format(user)), 0, -1,
-                   withscores=True)
-
-    # Parse the results.
-    results = pipe.execute()
-    total_events = int(results[0]) if results[0] is not None else 0
-    if not total_events:
-        return None
-    timezone = results[1]
-    offset = int(timezone) + 8 if timezone is not None else 0
-    event_counts = results[2]
-    daily_histogram = make_histogram(results[3].items(), 24, offset)
-    weekly_histogram = make_histogram(results[4].items(), 7)
-    languages = results[5]
-
-    # Parse the languages into a nicer form and get quantiles.
-    [(pipe.zcount(format_key("lang:{0}:user".format(l)), 100, "+inf"),
-      pipe.zrevrank(format_key("lang:{0}:user".format(l)), user))
-     for l, c in languages]
-    quants = pipe.execute()
-    languages = [{"language": l,
-                  "quantile": (min([100, int(100 * float(pos) / tot) + 1])
-                               if tot > 0 and pos is not None
-                               else 100),
-                  "count": int(c)}
-                 for (l, c), tot, pos in zip(languages, quants[::2],
-                                             quants[1::2])]
-
-    # Generate some stats for the event specific event types.
-    [(pipe.hgetall(format_key("user:{0}:event:{1}:day".format(user, e))),
-      pipe.hgetall(format_key("user:{0}:event:{1}:hour".format(user, e))))
-     for e, c in event_counts]
-    results = pipe.execute()
-    events = [{"type": e[0],
-               "week": map(int, make_histogram(w.items(), 7)),
-               "day": map(int, make_histogram(d.items(), 24, offset))}
-              for e, w, d in zip(event_counts, results[::2], results[1::2])
-              if len(d.items()) and len(w.items())]
-
-    if not len(events):
-        return None
-
-    total_events = 0
-    for k, e in enumerate(events):
-        s = sum(e["week"])
-        events[k]["total"] = s
-        total_events += s
-
-    return {
-        "total": total_events,
-        "events": events,
-        "day": map(int, daily_histogram),
-        "week": map(int, weekly_histogram),
-        "languages": languages,
-    }
-
-
-def get_comparison(user1, user2):
-    # Normalize the usernames.
-    user1, user2 = user1.lower(), user2.lower()
-
-    # Grab the stats from the database.
-    pipe = get_pipeline()
-    pipe.zscore(format_key("user"), user1)
-    pipe.zscore(format_key("user"), user2)
-    pipe.zrevrange(format_key("user:{0}:event".format(user1)), 0, -1,
-                   withscores=True)
-    pipe.zrevrange(format_key("user:{0}:event".format(user2)), 0, -1,
-                   withscores=True)
-    pipe.zrevrange(format_key("user:{0}:lang".format(user1)), 0, -1,
-                   withscores=True)
-    pipe.zrevrange(format_key("user:{0}:lang".format(user2)), 0, -1,
-                   withscores=True)
-    pipe.hgetall(format_key("user:{0}:day".format(user1)))
-    pipe.hgetall(format_key("user:{0}:day".format(user2)))
-    raw = pipe.execute()
-
-    # Get the total number of events.
-    total1 = float(raw[0]) if raw[0] is not None else 0
-    total2 = float(raw[1]) if raw[1] is not None else 0
-    if not total1:
-        return "is more active on GitHub"
-    elif not total2:
-        return "is less active on GitHub"
-
-    # Load the event types from disk.
-    with flask.current_app.open_resource("event_types.json") as f:
-        evttypes = json.load(f)
-
-    # Compare the fractional event types.
-    evts1 = dict(raw[2])
-    evts2 = dict(raw[3])
-    diffs = []
-    for e, desc in evttypes.iteritems():
-        if e in evts1 and e in evts2:
-            d = float(evts2[e]) / total2 / float(evts1[e]) * total1
-            if d != 1:
-                more = "more" if d > 1 else "less"
-                if d > 1:
-                    d = 1.0 / d
-                diffs.append((desc.format(more=more, user=user2), d * d))
-
-    # Compare language usage.
-    langs1 = dict(raw[4])
-    langs2 = dict(raw[5])
-    for l in set(langs1.keys()) | set(langs2.keys()):
-        n = float(langs1.get(l, 0)) / total1
-        d = float(langs2.get(l, 0)) / total2
-        if n != d and d > 0:
-            if n > 0:
-                d = d / n
-            else:
-                d = 1.0 / d
-            more = "more" if d > 1 else "less"
-            desc = "is {{more}} of a {0} aficionado".format(l)
-            if d > 1:
-                d = 1.0 / d
-            diffs.append((desc.format(more=more), d * d))
-
-    # Number of languages.
-    nl1, nl2 = len(raw[4]), len(raw[5])
-    if nl1 and nl2:
-        desc = "speaks {more} languages"
-        if nl1 > nl2:
-            diffs.append((desc.format(more="fewer"),
-                          nl2 * nl2 / nl1 / nl1))
-        else:
-            diffs.append((desc.format(user=user2, more="more"),
-                          nl1 * nl1 / nl2 / nl2))
-
-    # Compare the average weekly schedules.
-    week1 = map(lambda v: int(v[1]), raw[6].iteritems())
-    week2 = map(lambda v: int(v[1]), raw[7].iteritems())
-    mu1, mu2 = sum(week1) / 7.0, sum(week2) / 7.0
-    var1 = np.sqrt(sum(map(lambda v: (v - mu1) ** 2, week1)) / 7.0) / (mu1+1)
-    var2 = np.sqrt(sum(map(lambda v: (v - mu2) ** 2, week2)) / 7.0) / (mu2+1)
-    if var1 or var2 and var1 != var2:
-        if var1 > var2:
-            diffs.append(("has a more consistent weekly schedule", var2/var1))
-        else:
-            diffs.append(("has a less consistent weekly schedule", var1/var2))
-
-    # Compute the relative probabilities of the comparisons and normalize.
-    ps = map(lambda v: v[1], diffs)
-    norm = sum(ps)
-    if norm == 0 and len(diffs):
-        return diffs[0][0]
-
-    # Choose a random description weighted by the probabilities.
-    return np.random.choice([di[0] for di in diffs], p=[p / norm for p in ps])
-
-
-def get_repo_info(username, reponame, maxusers=5, max_recommend=5):
-    if _is_robot():
-        return None
-
-    # Normalize the repository name.
-    repo = "{0}/{1}".format(username, reponame)
-    rkey = format_key("social:repo:{0}".format(repo))
-    recommend_key = format_key("social:recommend:{0}".format(repo))
-
-    # Get the list of users.
-    pipe = get_pipeline()
-    pipe.exists(format_key("user:{0}:optout".format(username.lower())))
-    pipe.exists(rkey)
-    pipe.exists(recommend_key)
-    pipe.zrevrange(recommend_key, 0, max_recommend-1)
-    pipe.zrevrange(rkey, 0, maxusers-1, withscores=True)
-    flag0, flag1, flag2, recommendations, users = pipe.execute()
-    if flag0 or not flag1:
-        return None
-
-    if not flag2:
-        # Compute the repository similarities.
-        [pipe.zrevrange(format_key("social:user:{0}".format(u)), 0, -1)
-         for u, count in users]
-        repos = pipe.execute()
-        [pipe.zincrby(recommend_key, r, 1) for l in repos for r in l
-         if r != repo]
-        pipe.expire(recommend_key, 172800)
-        pipe.zrevrange(recommend_key, 0, max_recommend-1)
-        recommendations = pipe.execute()[-1]
-
-    # Get the contributor names.
-    users = [(u, c) for u, c in users if int(c) > 1]
-    [pipe.get(format_key("user:{0}:name".format(u))) for u, count in users]
-    names = pipe.execute()
-
-    return {
-        "repository": repo,
-        "recommendations": recommendations,
-        "contributors": [{"username": u, "name": n.decode("utf-8")
-                          if n is not None else u,
-                          "count": int(count)}
-                         for (u, count), n in zip(users, names)]
-    }
+    # Build the results dictionary.
+    return dict(
+        repo.basic_dict(),
+        owner=None if repo.owner is None else repo.owner.basic_dict(),
+        week=dict(week_hist),
+        day=dict(day_hist),
+        contributors=[{"login": u.login, "name": u.name, "count": c}
+                      for u, c in user_counts],
+    )
