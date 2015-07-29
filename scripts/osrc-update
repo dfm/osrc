@@ -3,11 +3,15 @@
 
 from __future__ import division, print_function
 
+import io
 import os
-import glob
+import time
 import json
 import gzip
 import argparse
+import requests
+from multiprocessing import Pool
+from datetime import date, timedelta
 
 try:
     import osrc  # NOQA
@@ -21,6 +25,22 @@ finally:
     from osrc import create_app
 
 
+# The URL template for the GitHub Archive.
+archive_url = ("http://data.githubarchive.org/"
+               "{year}-{month:02d}-{day:02d}-{n}.json.gz")
+
+
+def process_one(fh):
+    strt = time.time()
+    count = 0
+    with gzip.GzipFile(fileobj=fh) as f:
+        for line in f:
+            parse_event(json.loads(line.decode("utf-8")))
+            count += 1
+    print("... processed {0} events in {1} seconds"
+          .format(count, time.time() - strt))
+
+
 def parse_event(event):
     # Parse the standard elements.
     _process_event(event)
@@ -32,10 +52,14 @@ def parse_event(event):
 
 
 def _process_event(event):
+    q = Event.query.filter(Event.id == event["id"])
+    if q.first() is not None:
+        return
     user = process_user(event["actor"])
     repo = process_repo(event["repo"])
     dt = parse_datetime(event["created_at"])
     db.session.add(Event(
+        id=event["id"],
         event_type=event["type"],
         datetime=dt,
         day=dt.weekday(),
@@ -57,6 +81,12 @@ def _process_pull_request_comment(payload):
     _process_pull_request(payload)
 
 
+def _download_one(url):
+    r = requests.get(url)
+    r.raise_for_status()
+    return r.content
+
+
 event_types = dict(
     ForkEvent=_process_fork,
     PullRequestEvent=_process_pull_request,
@@ -69,9 +99,10 @@ if __name__ == "__main__":
     default_settings = os.path.join(dirname, "local.py")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("action",
-                        choices=["create", "drop"],
-                        help="create/drop the tables")
+    parser.add_argument("files", nargs="*",
+                        help="files to process, otherwise downloaded")
+    parser.add_argument("-s", "--since", default=None,
+                        help="the starting date YYYY-MM-DD")
     parser.add_argument("-f", "--filename",
                         default=default_settings,
                         help="a Python file with the app settings")
@@ -79,13 +110,33 @@ if __name__ == "__main__":
 
     app = create_app(args.filename)
     with app.app_context():
-        for fn in glob.iglob("data/*.json.gz"):
-            print(fn)
-            try:
-                with gzip.GzipFile(fn) as f:
-                    for i, line in enumerate(f):
-                        parse_event(json.loads(line.decode("utf-8")))
-            except:
-                raise
-            finally:
-                db.session.commit()
+        try:
+            if len(args.files):
+                for fn in args.files:
+                    print("Processing: {0}".format(fn))
+                    process_one(open(fn, "rb"))
+            else:
+                pool = Pool()
+                today = date.today()
+                if args.since is None:
+                    since = today - timedelta(1)
+                else:
+                    since = date(**dict(zip(["year", "month", "day"],
+                                        map(int, args.since.split("-")))))
+
+                while since < today:
+                    base_date = {"year": since.year, "month": since.month,
+                                 "day": since.day}
+                    urls = (archive_url.format(**(dict(base_date, n=n)))
+                            for n in range(24))
+                    for url, c in zip(urls, pool.map(_download_one, urls)):
+                        print("Processing: {0}".format(url))
+                        process_one(io.BytesIO(c))
+
+                    since += timedelta(1)
+
+        except:
+            raise
+
+        finally:
+            db.session.commit()

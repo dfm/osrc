@@ -83,7 +83,7 @@ class Repo(db.Model):
 
 class Event(db.Model):
     __tablename__ = "gh_events"
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.BigInteger, primary_key=True)
     event_type = db.Column(db.Text)
     datetime = db.Column(db.DateTime)
     day = db.Column(db.Integer)
