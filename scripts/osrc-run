@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+from __future__ import division, print_function
+
+import os
+import argparse
+
+from tornado.ioloop import IOLoop
+from tornado.wsgi import WSGIContainer
+from tornado.httpserver import HTTPServer
+
+try:
+    import osrc  # NOQA
+except ImportError:
+    import sys
+    sys.path.insert(
+        0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+finally:
+    from osrc import create_app
+
+if __name__ == "__main__":
+    dirname = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    default_settings = os.path.join(dirname, "local.py")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("action",
+                        choices=["create", "drop"],
+                        nargs="+",
+                        help="create/drop the tables")
+    parser.add_argument("-p", "--port", default=3031, type=int,
+                        help="the port to expose")
+    parser.add_argument("-f", "--filename",
+                        default=default_settings,
+                        help="a Python file with the app settings")
+    args = parser.parse_args()
+    app = create_app(args.filename)
+
+    http_server = HTTPServer(WSGIContainer(app))
+    http_server.listen(args.port)
+    IOLoop.instance().start()
