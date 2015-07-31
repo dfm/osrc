@@ -1,0 +1,12 @@
+db:
+    image: postgres
+
+web:
+    build: /web
+    command: python run.py -p 3031
+    volumes:
+        - /web:/code
+    ports:
+        - "3031:3031"
+    links:
+        - db
