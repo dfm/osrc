@@ -14,3 +14,4 @@ analytics.html
 *.sh
 *.log
 local.py
+database/data

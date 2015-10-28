@@ -25,7 +25,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--port", default=3031, type=int,
                         help="the port to expose")
     parser.add_argument("-f", "--filename",
-                        default=default_settings,
+                        default=None,
                         help="a Python file with the app settings")
     args = parser.parse_args()
 

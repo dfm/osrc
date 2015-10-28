@@ -99,7 +99,7 @@ if __name__ == "__main__":
                         help="a Python file with the app settings")
     args = parser.parse_args()
 
-    app = create_app(args.filename)
+    app = create_app(os.path.abspath(args.filename))
     with app.app_context():
         try:
             if len(args.files):

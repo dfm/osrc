@@ -1,0 +1,20 @@
+name: osrc
+dependencies:
+- flask=0.10.1=py35_1
+- itsdangerous=0.24=py35_0
+- jinja2=2.8=py35_0
+- markupsafe=0.23=py35_0
+- openssl=1.0.1k=1
+- pip=7.1.2=py35_0
+- psycopg2=2.6.1=py35_0
+- python=3.5.0=0
+- readline=6.2=2
+- setuptools=18.4=py35_0
+- sqlalchemy=1.0.9=py35_0
+- sqlite=3.8.4.1=1
+- tk=8.5.18=0
+- werkzeug=0.10.4=py35_0
+- wheel=0.26.0=py35_1
+- xz=5.0.5=0
+- zlib=1.2.8=0
+
