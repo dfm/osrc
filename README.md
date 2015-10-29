@@ -1,6 +1,8 @@
 The Open Source Report Card (v3)
 ================================
 
+A work in progress... hopefully we'll have the OSRC back up soon!
+
 Installation
 ------------
 
@@ -28,5 +30,6 @@ python manage.py drop
 License & Credits
 -----------------
 
-The Open Source Report Card was created by [Dan Foreman-Mackey](http://dan.iel.fm) and it is
-made available under the [MIT License](https://github.com/dfm/osrc/blob/master/LICENSE).
+The Open Source Report Card was created by [Dan
+Foreman-Mackey](http://dan.iel.fm) and it is made available under the [MIT
+License](https://github.com/dfm/osrc/blob/master/LICENSE).
