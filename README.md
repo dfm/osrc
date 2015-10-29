@@ -4,10 +4,24 @@ The Open Source Report Card (v3)
 Installation
 ------------
 
+Set up the environment:
+
 ```
 conda env create -f environment.yml
 source activate osrc
-pip install -r requirements.txt
+```
+
+Create the tables:
+
+```
+createdb osrc
+python manage.py create
+```
+
+These tables can also be dropped using:
+
+```
+python manage.py drop
 ```
 
 

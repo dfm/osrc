@@ -1,34 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import argparse
+from flask.ext.script import Manager
 
-try:
-    import osrc  # NOQA
-except ImportError:
-    import sys
-    sys.path.insert(
-        0, os.path.dirname(os.path.abspath(__file__)))
-finally:
-    from osrc.models import db
-    from osrc import create_app
+from osrc import create_app
+from osrc.manage import (
+    CreateTablesCommand, DropTablesCommand, UpdateCommand,
+)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("action",
-                        choices=["create", "drop"],
-                        nargs="+",
-                        help="create/drop the tables")
-    parser.add_argument("-f", "--filename",
-                        help="a Python file with the app settings")
-    args = parser.parse_args()
+    manager = Manager(create_app)
+    manager.add_option("-f", "--filename", dest="config_filename",
+                       required=False)
 
-    app = create_app(args.filename)
-    with app.app_context():
-        if "drop" in args.action:
-            print("drop")
-            db.drop_all()
-        if "create" in args.action:
-            print("create")
-            db.create_all()
+    manager.add_command("create", CreateTablesCommand())
+    manager.add_command("drop", DropTablesCommand())
+    manager.add_command("update", UpdateCommand())
+
+    manager.run()
