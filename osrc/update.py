@@ -4,6 +4,7 @@ import time
 import json
 import gzip
 import requests
+from io import BytesIO
 from datetime import date, timedelta
 
 from .models import db, Event
@@ -18,7 +19,7 @@ archive_url = ("http://data.githubarchive.org/"
 def process_one(fh):
     strt = time.time()
     count = 0
-    with gzip.GzipFile(fileobj=fh) as f:
+    with gzip.GzipFile(fileobj=BytesIO(fh)) as f:
         for line in f:
             parse_event(json.loads(line.decode("utf-8")))
             count += 1
@@ -96,12 +97,14 @@ def update(files=None, since=None):
                     month=since.month,
                     day=since.day,
                 )
-                for n in range(24):
+                # for n in range(24):
+                for n in range(1):
                     url = archive_url.format(**(dict(base_date, n=n)))
                     print("Processing: {0}".format(url))
-                    r = requests.get(url, stream=True)
+                    r = requests.get(url)
                     r.raise_for_status()
-                    process_one(r.raw)
+                    process_one(r.content)
+                    db.session.commit()
 
                 since += timedelta(1)
 

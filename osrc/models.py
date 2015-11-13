@@ -11,7 +11,7 @@ db = SQLAlchemy()
 class Language(db.Model):
     __tablename__ = "gh_languages"
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.Text, unique=True)
+    name = db.Column(db.Text, unique=True, index=True)
 
 
 class User(db.Model):
@@ -19,7 +19,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_type = db.Column(db.Text)
     name = db.Column(db.Text)
-    login = db.Column(db.Text)
+    login = db.Column(db.Text, index=True)
     location = db.Column(db.Text)
     lat = db.Column(db.Float)
     lng = db.Column(db.Float)
