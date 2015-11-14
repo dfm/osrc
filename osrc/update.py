@@ -264,8 +264,7 @@ def update(files=None, since=None):
                 month=since.month,
                 day=since.day,
             )
-            # for n in range(24):
-            for n in range(1):
+            for n in range(24):
                 url = archive_url.format(**(dict(base_date, n=n)))
                 print("Processing: {0}".format(url))
                 strt = time.time()
