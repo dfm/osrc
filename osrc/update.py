@@ -3,12 +3,12 @@
 import time
 import json
 import gzip
-import requests
 from io import BytesIO
 from collections import defaultdict
 from datetime import date, timedelta
 
 from .models import db
+from .asyncdl import Downloader
 from .process import parse_datetime
 
 
@@ -29,9 +29,12 @@ class Parser(object):
             # Start by creating the temporary tables that we'll use for these
             # events.
             self.cursor.execute("""
-                create temporary table temp_gh_users(like gh_users);
-                create temporary table temp_gh_repos(like gh_repos);
-                create temporary table temp_gh_events(like gh_events);
+                create temporary table temp_gh_users(like gh_users)
+                    on commit drop;
+                create temporary table temp_gh_repos(like gh_repos)
+                    on commit drop;
+                create temporary table temp_gh_events(like gh_events)
+                    on commit drop;
             """)
 
             # Loop over events and fill the temporary tables.
@@ -92,7 +95,6 @@ class Parser(object):
                 LEFT OUTER JOIN gh_users ON (gh_users.id = temp_gh_users.id)
                 WHERE gh_users.id IS NULL;
 
-                COMMIT;
             """.format(
                 ", ".join(map("{0} = coalesce(temp_gh_users.{0}, gh_users.{0})"
                               .format,
@@ -115,7 +117,6 @@ class Parser(object):
                 LEFT OUTER JOIN gh_repos ON (gh_repos.id = temp_gh_repos.id)
                 WHERE gh_repos.id IS NULL;
 
-                COMMIT;
             """.format(
                 ", ".join(map("{0} = coalesce(temp_gh_repos.{0}, gh_repos.{0})"
                               .format,
@@ -256,22 +257,26 @@ def update(files=None, since=None):
             since = date(**dict(zip(["year", "month", "day"],
                                 map(int, since.split("-")))))
 
-        print("Updating since '{0}'".format(since))
+        print("updating since '{0}'".format(since))
 
+        dler = Downloader()
         while since < today:
             base_date = dict(
                 year=since.year,
                 month=since.month,
                 day=since.day,
             )
-            for n in range(24):
-                url = archive_url.format(**(dict(base_date, n=n)))
-                print("Processing: {0}".format(url))
-                strt = time.time()
-                r = requests.get(url)
-                r.raise_for_status()
-                print("download took {0} seconds..."
-                      .format(time.time()-strt))
-                parser.process(r.content)
+
+            urls = [archive_url.format(**(dict(base_date, n=n)))
+                    for n in range(24)]
+            strt = time.time()
+            results = dler.download(
+                urls, request_timeout=30*60, connection_timeout=30*60
+            )
+            print("download took {0} seconds...".format(time.time()-strt))
+
+            for url, content in results.items():
+                print("processing: {0}".format(url))
+                parser.process(content)
 
             since += timedelta(1)

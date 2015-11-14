@@ -15,3 +15,4 @@ analytics.html
 *.log
 local.py
 volumes
+*.json.gz

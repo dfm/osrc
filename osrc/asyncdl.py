@@ -10,22 +10,26 @@ from tornado import httpclient
 
 class Downloader(object):
 
-    def download(self, urls):
+    def download(self, urls, **kwargs):
         self.urls = urls
         self.errors = []
         self.results = []
 
         http_client = httpclient.AsyncHTTPClient()
-        [http_client.fetch(url, partial(self.handle_request, url))
+        [http_client.fetch(url, partial(self.handle_request, url), **kwargs)
          for url in urls]
         ioloop.IOLoop.instance().start()
+
+        if len(self.errors):
+            for k, (code, error) in self.errors:
+                print(k, code, error)
+            raise RuntimeError("{0} errors".format(len(self.errors)))
 
         return dict(self.results)
 
     def handle_request(self, url, response):
-        print(url)
         if response.error:
-            self.errors.append((url, response.error))
+            self.errors.append((url, (response.code, response.error)))
         else:
             self.results.append((url, response.body))
 
