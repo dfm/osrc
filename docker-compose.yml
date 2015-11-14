@@ -6,8 +6,6 @@ data:
 
 postgres:
     image: postgres
-    links:
-        - data
     volumes_from:
         - data
     environment:
@@ -15,8 +13,6 @@ postgres:
 
 redis:
     image: redis
-    links:
-        - data
     volumes_from:
         - data
     command: redis-server --appendonly yes
