@@ -19,11 +19,11 @@ redis:
 
 web:
     build: .
-    command: python run.py -p 3031
+    command: python run.py -p 3535 -f /osrc/local.py
     volumes:
         - .:/osrc
     ports:
-        - "3031:3031"
+        - "3535:3535"
     links:
         - postgres
         - redis
