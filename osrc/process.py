@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["parse_datetime", "process_repo", "process_user"]
+__all__ = [
+    "parse_datetime", "process_repo", "process_user",
+]
 
 from datetime import datetime
 
 from . import google
-from .models import db, Language, User, Repo
+from .models import db, User, Repo
 
 
 def parse_datetime(dt, fmt="%Y-%m-%dT%H:%M:%SZ"):
@@ -30,13 +32,6 @@ def process_repo(repo, etag=None):
         name = fullname.split("/")[-1]
         owner = None
 
-    # Get the language entry.
-    lang = repo.get("language")
-    if lang is not None:
-        lang = Language.query.filter_by(name=lang).first()
-        if lang is None:
-            lang = Language(name=repo["language"])
-
     # Parse the date.
     updated = parse_datetime(repo.get("updated_at"))
 
@@ -53,7 +48,7 @@ def process_repo(repo, etag=None):
             fork_count=repo.get("forks_count"),
             issues_count=repo.get("open_issues_count"),
             last_updated=updated,
-            language=lang,
+            language=repo.get("language"),
             etag=etag,
         )
         db.session.add(repo_obj)
@@ -61,6 +56,7 @@ def process_repo(repo, etag=None):
         repo_obj.name = name
         repo_obj.fullname = fullname
         repo_obj.owner = owner
+        repo_obj.owner = repo.get("language", repo_obj.language)
         repo_obj.description = repo.get("description", repo_obj.description)
         repo_obj.star_count = repo.get("stargazers_count", repo_obj.star_count)
         repo_obj.watcher_count = repo.get("subscribers_count",
@@ -70,8 +66,6 @@ def process_repo(repo, etag=None):
                                          repo_obj.issues_count)
         if updated is not None:
             repo_obj.last_updated = updated
-        if lang is not None:
-            repo_obj.language = lang
         if etag is not None:
             repo_obj.etag = etag
     return repo_obj
@@ -105,6 +99,7 @@ def process_user(user, etag=None):
     # Update the timezone.
     if update_tz and user_obj.location is not None:
         r = google.timezone(user_obj.location)
+        print(r)
         if r is not None:
             latlng, tz = r
             user_obj.timezone = tz
