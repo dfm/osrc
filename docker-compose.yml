@@ -19,7 +19,7 @@ redis:
 
 web:
     build: .
-    command: python run.py -p 3535 -f /osrc/local.py
+    command: python run.py -p 3535 -f /osrc/local.py --debug
     volumes:
         - .:/osrc
     ports:

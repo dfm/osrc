@@ -55,6 +55,6 @@ def get_repo(fullname):
         return repo
     elif r.status_code != requests.codes.ok:
         flask.abort(r.status_code)
-    user = process_repo(r.json(), etag=r.headers["ETag"])
+    repo = process_repo(r.json(), etag=r.headers["ETag"])
     db.session.commit()
-    return user
+    return repo

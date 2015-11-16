@@ -4,6 +4,7 @@ import time
 import json
 import gzip
 from io import BytesIO
+from multiprocessing import Pool
 from collections import defaultdict
 from datetime import date, timedelta
 
@@ -19,127 +20,141 @@ archive_url = ("http://data.githubarchive.org/"
 
 class Parser(object):
 
-    def process(self, fh):
+    def __call__(self, args):
+        name, fh = args
         self.users = defaultdict(dict)
         self.repos = defaultdict(dict)
 
-        with db.engine.connect() as c:
-            self.cursor = c.connection.cursor()
+        c = db.engine.connect()
+        c.connection.autocommit = False
+        self.cursor = c.connection.cursor()
 
-            # Start by creating the temporary tables that we'll use for these
-            # events.
-            self.cursor.execute("""
-                create temporary table temp_gh_users(like gh_users)
-                    on commit drop;
-                create temporary table temp_gh_repos(like gh_repos)
-                    on commit drop;
-                create temporary table temp_gh_events(like gh_events)
-                    on commit drop;
-            """)
+        # Start by creating the temporary tables that we'll use for these
+        # events.
+        self.cursor.execute("""
+            create temporary table temp_gh_users(like gh_users)
+                on commit drop;
+            create temporary table temp_gh_repos(like gh_repos)
+                on commit drop;
+            create temporary table temp_gh_events(like gh_events)
+                on commit drop;
+        """)
 
-            # Loop over events and fill the temporary tables.
-            strt = time.time()
-            count = 0
-            with gzip.GzipFile(fileobj=BytesIO(fh)) as f:
-                for line in f:
-                    strt = time.time()
-                    self._process_event(json.loads(line.decode("utf-8")))
-                    count += 1
+        # Loop over events and fill the temporary tables.
+        strt = time.time()
+        count = 0
+        with gzip.GzipFile(fileobj=BytesIO(fh)) as f:
+            for line in f:
+                strt = time.time()
+                self._process_event(json.loads(line.decode("utf-8")))
+                count += 1
 
-            all_user_keys = set([])
-            for user in self.users.values():
-                keys = list(user.keys())
-                all_user_keys |= set(keys)
-                self.cursor.execute(
-                    """
-                    insert into temp_gh_users (
-                        {0}
-                    ) values (
-                        {1}
-                    )
-                    """
-                    .format(",".join(keys),
-                            ",".join(map("%({0})s".format, keys))),
-                    user
+        all_user_keys = set([])
+        for user in self.users.values():
+            keys = list(user.keys())
+            all_user_keys |= set(keys)
+            self.cursor.execute(
+                """
+                insert into temp_gh_users (
+                    {0}
+                ) values (
+                    {1}
                 )
+                """
+                .format(",".join(keys),
+                        ",".join(map("%({0})s".format, keys))),
+                user
+            )
 
-            all_repo_keys = set([])
-            for repo in self.repos.values():
-                keys = list(repo.keys())
-                all_repo_keys |= set(keys)
-                self.cursor.execute(
-                    """
-                    insert into temp_gh_repos (
-                        {0}
-                    ) values (
-                        {1}
-                    )
-                    """
-                    .format(",".join(keys),
-                            ",".join(map("%({0})s".format, keys))),
-                    repo
+        all_repo_keys = set([])
+        for repo in self.repos.values():
+            keys = list(repo.keys())
+            all_repo_keys |= set(keys)
+            self.cursor.execute(
+                """
+                insert into temp_gh_repos (
+                    {0}
+                ) values (
+                    {1}
                 )
+                """
+                .format(",".join(keys),
+                        ",".join(map("%({0})s".format, keys))),
+                repo
+            )
 
-            # Copy the temporary tables.
-            self.cursor.execute("""
-                LOCK TABLE gh_users IN EXCLUSIVE MODE;
+        # Copy the temporary tables.
+        self.cursor.execute("""
+            LOCK TABLE gh_users IN EXCLUSIVE MODE;
 
-                UPDATE gh_users
-                SET {0}
-                FROM temp_gh_users
-                where temp_gh_users.id = gh_users.id;
+            UPDATE gh_users
+            SET {0}
+            FROM temp_gh_users
+            where temp_gh_users.id = gh_users.id;
 
-                INSERT INTO gh_users({1})
-                SELECT {2}
-                FROM temp_gh_users
-                LEFT OUTER JOIN gh_users ON (gh_users.id = temp_gh_users.id)
-                WHERE gh_users.id IS NULL;
+            INSERT INTO gh_users({1}, active)
+            SELECT {2}, TRUE
+            FROM temp_gh_users
+            LEFT OUTER JOIN gh_users ON (gh_users.id = temp_gh_users.id)
+            WHERE gh_users.id IS NULL;
+        """.format(
+            ", ".join(map("{0} = coalesce(temp_gh_users.{0}, gh_users.{0})"
+                            .format,
+                            all_user_keys)),
+            ", ".join(all_user_keys),
+            ", ".join(map("temp_gh_users.{0}".format, all_user_keys))
+        ))
 
-            """.format(
-                ", ".join(map("{0} = coalesce(temp_gh_users.{0}, gh_users.{0})"
-                              .format,
-                              all_user_keys)),
-                ", ".join(all_user_keys),
-                ", ".join(map("temp_gh_users.{0}".format, all_user_keys))
-            ))
+        self.cursor.execute("""
+            LOCK TABLE gh_repos IN EXCLUSIVE MODE;
 
-            self.cursor.execute("""
-                LOCK TABLE gh_repos IN EXCLUSIVE MODE;
+            UPDATE gh_repos
+            SET {0}
+            FROM temp_gh_repos
+            where temp_gh_repos.id = gh_repos.id;
 
-                UPDATE gh_repos
-                SET {0}
-                FROM temp_gh_repos
-                where temp_gh_repos.id = gh_repos.id;
+            INSERT INTO gh_repos({1}, active)
+            SELECT {2}, TRUE
+            FROM temp_gh_repos
+            LEFT OUTER JOIN gh_repos ON (gh_repos.id = temp_gh_repos.id)
+            WHERE gh_repos.id IS NULL;
+        """.format(
+            ", ".join(map("{0} = coalesce(temp_gh_repos.{0}, gh_repos.{0})"
+                            .format,
+                            all_repo_keys)),
+            ", ".join(all_repo_keys),
+            ", ".join(map("temp_gh_repos.{0}".format, all_repo_keys))
+        ))
 
-                INSERT INTO gh_repos({1})
-                SELECT {2}
-                FROM temp_gh_repos
-                LEFT OUTER JOIN gh_repos ON (gh_repos.id = temp_gh_repos.id)
-                WHERE gh_repos.id IS NULL;
+        all_event_keys = ["id", "event_type", "datetime", "day", "hour",
+                          "user_id", "repo_id"]
 
-            """.format(
-                ", ".join(map("{0} = coalesce(temp_gh_repos.{0}, gh_repos.{0})"
-                              .format,
-                              all_repo_keys)),
-                ", ".join(all_repo_keys),
-                ", ".join(map("temp_gh_repos.{0}".format, all_repo_keys))
-            ))
-
+        try:
             self.cursor.execute("""
                 LOCK TABLE gh_events IN EXCLUSIVE MODE;
 
-                INSERT INTO gh_events
-                SELECT
-                    temp_gh_events.id, temp_gh_events.event_type,
-                    temp_gh_events.datetime, temp_gh_events.day,
-                    temp_gh_events.hour, temp_gh_events.user_id,
-                    temp_gh_events.repo_id
+                UPDATE gh_events
+                SET {0}
+                FROM temp_gh_events
+                where temp_gh_events.id = gh_events.id;
+
+                INSERT INTO gh_events({1})
+                SELECT {2}
                 FROM temp_gh_events
                 LEFT OUTER JOIN gh_events ON (gh_events.id = temp_gh_events.id)
                 WHERE gh_events.id IS NULL;
+            """.format(
+                ", ".join(map("{0} = coalesce(temp_gh_events.{0}, gh_events.{0})"
+                                .format,
+                                all_event_keys)),
+                ", ".join(all_event_keys),
+                ", ".join(map("temp_gh_events.{0}".format, all_event_keys))
+            ))
+        except:
+            print(name)
+            raise
 
-                COMMIT;
-            """)
+        self.cursor.execute("commit;")
 
         print("... processed {0} events in {1} seconds"
               .format(count, time.time() - strt))
@@ -149,10 +164,10 @@ class Parser(object):
         self.cursor.execute("""
             insert into temp_gh_events (
                 id, event_type, datetime, day, hour, user_id, repo_id
-            ) values (
+            ) select
                 %(id)s, %(event_type)s, %(datetime)s, %(day)s, %(hour)s,
                 %(user_id)s, %(repo_id)s
-            )
+            where not exists (select id from temp_gh_events where id=%(id)s)
         """, dict(
             id=event["id"],
             event_type=event["type"],
@@ -245,10 +260,9 @@ class Parser(object):
 
 def update(files=None, since=None):
     parser = Parser()
+    pool = Pool()
     if files is not None:
-        for fn in files:
-            print("Processing: {0}".format(fn))
-            parser.process(open(fn, "rb").read())
+        list(pool.map(parser, ((fn, open(fn, "rb").read()) for fn in files)))
     else:
         today = date.today()
         if since is None:
@@ -271,12 +285,11 @@ def update(files=None, since=None):
                     for n in range(24)]
             strt = time.time()
             results = dler.download(
-                urls, request_timeout=30*60, connection_timeout=30*60
+                urls, request_timeout=30*60, connect_timeout=30*60
             )
+            print(base_date)
             print("download took {0} seconds...".format(time.time()-strt))
 
-            for url, content in results.items():
-                print("processing: {0}".format(url))
-                parser.process(content)
+            list(pool.map(parser, results.items()))
 
             since += timedelta(1)

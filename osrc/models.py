@@ -28,6 +28,7 @@ class User(db.Model):
         return dict(
             id=self.id,
             username=self.login,
+            type=self.user_type,
             timezone=self.timezone,
             location=dict(
                 name=self.location,

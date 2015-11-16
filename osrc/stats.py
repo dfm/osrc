@@ -27,7 +27,7 @@ def user_stats(username):
     for r, c in repo_counts:
         if r.language is None:
             continue
-        langs[r.language.name] += c
+        langs[r.language] += c
 
     # Get the week histogram.
     week_hist = defaultdict(lambda: list([0 for _ in range(7)]))
