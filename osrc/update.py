@@ -3,6 +3,7 @@
 import time
 import json
 import gzip
+import traceback
 from io import BytesIO
 from multiprocessing import Pool
 from collections import defaultdict
@@ -22,6 +23,14 @@ class Parser(object):
 
     def __call__(self, args):
         name, fh = args
+        try:
+            return self.process(name, fh)
+        except Exception as e:
+            print(e)
+            print(name)
+            raise
+
+    def process(self, name, fh):
         self.users = defaultdict(dict)
         self.repos = defaultdict(dict)
 
@@ -46,7 +55,15 @@ class Parser(object):
         with gzip.GzipFile(fileobj=BytesIO(fh)) as f:
             for line in f:
                 strt = time.time()
-                self._process_event(json.loads(line.decode("utf-8")))
+                evt = json.loads(line.decode("utf-8"))
+                try:
+                    self._process_event(evt)
+                except:
+                    print("failed to process event:")
+                    print(evt)
+                    print("  exception:")
+                    traceback.print_exc()
+                    continue
                 count += 1
 
         all_user_keys = set([])
@@ -129,30 +146,26 @@ class Parser(object):
         all_event_keys = ["id", "event_type", "datetime", "day", "hour",
                           "user_id", "repo_id"]
 
-        try:
-            self.cursor.execute("""
-                LOCK TABLE gh_events IN EXCLUSIVE MODE;
+        self.cursor.execute("""
+            LOCK TABLE gh_events IN EXCLUSIVE MODE;
 
-                UPDATE gh_events
-                SET {0}
-                FROM temp_gh_events
-                where temp_gh_events.id = gh_events.id;
+            UPDATE gh_events
+            SET {0}
+            FROM temp_gh_events
+            where temp_gh_events.id = gh_events.id;
 
-                INSERT INTO gh_events({1})
-                SELECT {2}
-                FROM temp_gh_events
-                LEFT OUTER JOIN gh_events ON (gh_events.id = temp_gh_events.id)
-                WHERE gh_events.id IS NULL;
-            """.format(
-                ", ".join(map("{0} = coalesce(temp_gh_events.{0}, gh_events.{0})"
-                                .format,
-                                all_event_keys)),
-                ", ".join(all_event_keys),
-                ", ".join(map("temp_gh_events.{0}".format, all_event_keys))
-            ))
-        except:
-            print(name)
-            raise
+            INSERT INTO gh_events({1})
+            SELECT {2}
+            FROM temp_gh_events
+            LEFT OUTER JOIN gh_events ON (gh_events.id = temp_gh_events.id)
+            WHERE gh_events.id IS NULL;
+        """.format(
+            ", ".join(map("{0} = coalesce(temp_gh_events.{0}, gh_events.{0})"
+                          .format,
+                          all_event_keys)),
+            ", ".join(all_event_keys),
+            ", ".join(map("temp_gh_events.{0}".format, all_event_keys))
+        ))
 
         self.cursor.execute("commit;")
 
@@ -281,13 +294,14 @@ def update(files=None, since=None):
                 day=since.day,
             )
 
+            print("downloading files for {year}-{month:02d}-{day:02d}"
+                  .format(**base_date))
             urls = [archive_url.format(**(dict(base_date, n=n)))
                     for n in range(24)]
             strt = time.time()
             results = dler.download(
                 urls, request_timeout=30*60, connect_timeout=30*60
             )
-            print(base_date)
             print("download took {0} seconds...".format(time.time()-strt))
 
             list(pool.map(parser, results.items()))
