@@ -1,0 +1,29 @@
+data:
+    image: busybox
+    volumes:
+        - ./volumes/postgres:/var/lib/postgresql/data
+        - ./volumes/redis:/data
+
+postgres:
+    image: postgres
+    volumes_from:
+        - data
+    environment:
+        POSTGRES_PASSWORD: docker
+
+redis:
+    image: redis
+    volumes_from:
+        - data
+    command: redis-server --appendonly yes
+
+web:
+    build: .
+    command: python run.py -p 3535 -f /osrc/local.py --debug
+    volumes:
+        - .:/osrc
+    ports:
+        - "3535:3535"
+    links:
+        - postgres
+        - redis

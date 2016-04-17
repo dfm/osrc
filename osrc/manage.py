@@ -4,6 +4,8 @@ __all__ = [
     "CreateTablesCommand", "DropTablesCommand", "UpdateCommand",
 ]
 
+import glob
+
 from flask.ext.script import Command, Option
 
 from .models import db
@@ -24,7 +26,11 @@ class UpdateCommand(Command):
 
     option_list = (
         Option("-s", "--since", dest="since", required=False),
+        Option("-p", "--pattern", dest="pattern", required=False),
     )
 
-    def run(self, since):
-        update(since=since)
+    def run(self, since, pattern):
+        files = None
+        if pattern is not None:
+            files = glob.glob(pattern)
+        update(files=files, since=since)

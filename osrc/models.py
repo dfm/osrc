@@ -1,17 +1,11 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["db", "Language", "User", "Repo", "Event"]
+__all__ = ["db", "User", "Repo", "Event"]
 
 from flask.ext.sqlalchemy import SQLAlchemy
 
 
 db = SQLAlchemy()
-
-
-class Language(db.Model):
-    __tablename__ = "gh_languages"
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.Text, unique=True, index=True)
 
 
 class User(db.Model):
@@ -34,6 +28,7 @@ class User(db.Model):
         return dict(
             id=self.id,
             username=self.login,
+            type=self.user_type,
             timezone=self.timezone,
             location=dict(
                 name=self.location,
@@ -51,6 +46,8 @@ class Repo(db.Model):
     name = db.Column(db.Text)
     fullname = db.Column(db.Text, index=True)
     description = db.Column(db.Text)
+    language = db.Column(db.Text)
+    fork = db.Column(db.Boolean)
     etag = db.Column(db.Text)
     active = db.Column(db.Boolean, default=True)
 
@@ -65,10 +62,6 @@ class Repo(db.Model):
     # `updated_at`
     last_updated = db.Column(db.DateTime)
 
-    # Relationships.
-    language_id = db.Column(db.Integer, db.ForeignKey("gh_languages.id"))
-    language = db.relationship(Language, backref=db.backref("repos",
-                                                            lazy="dynamic"))
     owner_id = db.Column(db.Integer, db.ForeignKey("gh_users.id"))
     owner = db.relationship(User, backref=db.backref("repos", lazy="dynamic"))
 
@@ -77,7 +70,7 @@ class Repo(db.Model):
             id=self.id,
             name=self.fullname,
             description=self.description,
-            language=None if self.language is None else self.language.name,
+            language=self.language,
         )
 
 
