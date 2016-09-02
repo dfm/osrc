@@ -174,11 +174,11 @@ class Parser(object):
         dt = parse_datetime(event["created_at"])
         day = dt.weekday()
         hour = dt.hour
-        key = "u:{0}:r:{1}".format(user_id, repo_id)
-        self._redis_execute(pipe, "zincrby", key, 1)
+        key = "u:{0}:r".format(user_id)
+        self._redis_execute(pipe, "zincrby", key, repo_id, 1)
 
-        key = "r:{0}:u:{1}".format(repo_id, user_id)
-        self._redis_execute(pipe, "zincrby", key, 1)
+        key = "r:{0}:u".format(repo_id)
+        self._redis_execute(pipe, "zincrby", key, user_id, 1)
 
         evt = event["type"][:-5]
         key = "u:{0}:e:{1}".format(user_id, evt)
@@ -186,23 +186,6 @@ class Parser(object):
 
         key = "r:{0}:e:{1}".format(repo_id, evt)
         self._redis_update_hist(pipe, key, day, hour)
-
-        # self.cursor.execute("""
-        #     insert into temp_gh_events (
-        #         id, event_type, datetime, day, hour, user_id, repo_id
-        #     ) select
-        #         %(id)s, %(event_type)s, %(datetime)s, %(day)s, %(hour)s,
-        #         %(user_id)s, %(repo_id)s
-        #     where not exists (select id from temp_gh_events where id=%(id)s)
-        # """, dict(
-        #     id=event["id"],
-        #     event_type=event["type"],
-        #     datetime=dt,
-        #     day=dt.weekday(),
-        #     hour=dt.hour,
-        #     user_id=event["actor"]["id"],
-        #     repo_id=event["repo"]["id"],
-        # ))
 
         # Parse any event specific elements.
         parser = self.event_types.get(event["type"], None)

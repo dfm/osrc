@@ -1,62 +1,100 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["user_stats", "repo_stats"]
-
 import flask
 from sqlalchemy import func, desc
 from collections import defaultdict
 
 from . import github
-from .models import db, Event, Repo, User
+from .models import db, Repo, User
+from .redis import get_pipeline, get_connection, format_key
+
+__all__ = ["user_stats", "repo_stats"]
 
 
-def user_stats(username, tz_offset=True):
+def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     user = github.get_user(username)
-    if not user.active:
+    if user is None or not user.active:
         return flask.abort(404)
 
-    # Get the repo stats.
-    repo_counts = db.session.query(Repo, func.count()) \
-        .select_from(Event) \
-        .filter(Event.user_id == user.id) \
-        .join(Repo) \
-        .group_by(Repo.id) \
-        .order_by(desc(func.count())) \
-        .all()
-    langs = defaultdict(int)
-    for r, c in repo_counts:
-        if r.language is None:
+    # Get the repo counts.
+    conn = get_connection()
+    repos = conn.zrevrange(format_key("u:{0}:r".format(user.id)), 0, 4,
+                           withscores=True)
+    repo_counts = []
+    for repo_id, count in repos:
+        r = github.get_repo(id=int(repo_id))
+        repo_counts.append((r, int(count)))
+
+    # Find the social connections.
+    key = format_key("s:u:{0}".format(user.id))
+    pipe = get_pipeline()
+    pipe.exists(key)
+    pipe.zrevrange(key, 0, max_connected-1)
+    flag, social = pipe.execute()
+    if not flag:
+        [pipe.zrevrange(format_key("r:{0}:u".format(int(r))), 0, max_users)
+         for r, _ in repos]
+        users = pipe.execute()
+        [pipe.zincrby(key, u, 1) for l in users for u in l
+         if int(u) != user.id]
+        pipe.expire(key, 172800)
+        pipe.zrevrange(key, 0, max_connected-1)
+        social = pipe.execute()[-1]
+
+    friends = []
+    for u in social:
+        f = github.get_user(id=int(u))
+        if f.user_type != "User":
             continue
-        langs[r.language] += c
+        friends.append(f)
 
-    # Get the week histogram.
-    week_hist = defaultdict(lambda: list([0 for _ in range(7)]))
-    for _, k, t, v in db.session.query(
-        Event.user_id, Event.day, Event.event_type, func.count(),
-    ).filter_by(user_id=user.id).group_by(
-            Event.user_id, Event.event_type, Event.day):
-        week_hist[t][k] = v
+    # Get all the redis data.
+    # keys = get_connection().keys(format_key("u:{0}:*".format(user.id)))
+    # print(keys)
 
-    # Get the data histogram.
-    day_hist = defaultdict(lambda: list([0 for _ in range(24)]))
-    for _, k, t, v in db.session.query(
-        Event.user_id, Event.hour, Event.event_type, func.count(),
-    ).filter_by(user_id=user.id).group_by(
-            Event.user_id, Event.event_type, Event.hour).all():
-        day_hist[t][k] = v
+    # # Get the repo stats.
+    # repo_counts = db.session.query(Repo, func.count()) \
+    #     .select_from(Event) \
+    #     .filter(Event.user_id == user.id) \
+    #     .join(Repo) \
+    #     .group_by(Repo.id) \
+    #     .order_by(desc(func.count())) \
+    #     .all()
+    # langs = defaultdict(int)
+    # for r, c in repo_counts:
+    #     if r.language is None:
+    #         continue
+    #     langs[r.language] += c
 
-    # Correct for the timezone.
-    if tz_offset and user.timezone:
-        for t, v in day_hist.items():
-            day_hist[t] = roll(v, user.timezone)
+    # # Get the week histogram.
+    # week_hist = defaultdict(lambda: list([0 for _ in range(7)]))
+    # for _, k, t, v in db.session.query(
+    #     Event.user_id, Event.day, Event.event_type, func.count(),
+    # ).filter_by(user_id=user.id).group_by(
+    #         Event.user_id, Event.event_type, Event.day):
+    #     week_hist[t][k] = v
+
+    # # Get the data histogram.
+    # day_hist = defaultdict(lambda: list([0 for _ in range(24)]))
+    # for _, k, t, v in db.session.query(
+    #     Event.user_id, Event.hour, Event.event_type, func.count(),
+    # ).filter_by(user_id=user.id).group_by(
+    #         Event.user_id, Event.event_type, Event.hour).all():
+    #     day_hist[t][k] = v
+
+    # # Correct for the timezone.
+    # if tz_offset and user.timezone:
+    #     for t, v in day_hist.items():
+    #         day_hist[t] = roll(v, user.timezone)
 
     # Build the results dictionary.
     return dict(
         user.basic_dict(),
-        week=dict(week_hist),
-        day=dict(day_hist),
-        languages=dict(langs),
-        repos=[{"name": r.fullname, "count": c} for r, c in repo_counts[:5]],
+        # week=dict(week_hist),
+        # day=dict(day_hist),
+        # languages=dict(langs),
+        repos=[{"name": r.fullname, "count": c} for r, c in repo_counts],
+        friends=[{"fullname": u.name, "login": u.login} for u in friends],
     )
 
 

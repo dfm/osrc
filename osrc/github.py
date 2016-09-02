@@ -31,9 +31,17 @@ def gh_request(path, method="GET", etag=None, **params):
     return r
 
 
-def get_user(username):
-    user = User.query.filter(
-        func.lower(User.login) == func.lower(username)).first()
+def get_user(username=None, id=None):
+    if id is not None:
+        user = User.query.filter(User.id == id).first()
+        if user is None:
+            return None
+        username = user.login
+    elif username is not None:
+        user = User.query.filter(
+            func.lower(User.login) == func.lower(username)).first()
+    else:
+        return None
     etag = None if user is None else user.etag
     r = gh_request("/users/{0}".format(username), etag=etag)
     if r.status_code == 304:
@@ -45,10 +53,19 @@ def get_user(username):
     return user
 
 
-def get_repo(fullname):
-    repo = Repo.query.filter(
-        func.lower(Repo.fullname) == func.lower(fullname)) \
-        .order_by(Repo.id.desc()).first()
+def get_repo(fullname=None, id=None):
+    if id is not None:
+        repo = Repo.query.filter(Repo.id == id) \
+            .order_by(Repo.id.desc()).first()
+        if repo is None:
+            return None
+        fullname = repo.fullname
+    elif fullname is not None:
+        repo = Repo.query.filter(
+            func.lower(Repo.fullname) == func.lower(fullname)) \
+            .order_by(Repo.id.desc()).first()
+    else:
+        return None
     etag = None if repo is None else repo.etag
     r = gh_request("/repos/{0}".format(fullname), etag=etag)
     if r.status_code == 304:

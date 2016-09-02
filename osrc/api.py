@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["api"]
-
 import flask
 from functools import wraps
 
 from .stats import user_stats, repo_stats
+
+__all__ = ["api"]
 
 api = flask.Blueprint("api", __name__)
 

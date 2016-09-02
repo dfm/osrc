@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
 
-__all__ = [
-    "CreateTablesCommand", "DropTablesCommand", "UpdateCommand",
-]
-
 import glob
 
 from flask.ext.script import Command, Option
@@ -11,6 +7,10 @@ from flask.ext.script import Command, Option
 from .models import db
 from .update import update
 from .redis import get_connection
+
+__all__ = [
+    "CreateTablesCommand", "DropTablesCommand", "UpdateCommand",
+]
 
 
 class CreateTablesCommand(Command):

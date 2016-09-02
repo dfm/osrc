@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
-__all__ = [
-    "parse_datetime", "process_repo", "process_user",
-]
-
 from datetime import datetime
 
 from . import google
 from .models import db, User, Repo
+
+__all__ = [
+    "parse_datetime", "process_repo", "process_user",
+]
 
 
 def parse_datetime(dt, fmt="%Y-%m-%dT%H:%M:%SZ"):
@@ -99,7 +99,6 @@ def process_user(user, etag=None):
     # Update the timezone.
     if update_tz and user_obj.location is not None:
         r = google.timezone(user_obj.location)
-        print(r)
         if r is not None:
             latlng, tz = r
             user_obj.timezone = tz

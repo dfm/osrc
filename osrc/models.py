@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["db", "User", "Repo", "Event"]
-
 from flask.ext.sqlalchemy import SQLAlchemy
+
+__all__ = ["db", "User", "Repo"]
 
 
 db = SQLAlchemy()
@@ -72,16 +72,3 @@ class Repo(db.Model):
             description=self.description,
             language=self.language,
         )
-
-
-class Event(db.Model):
-    __tablename__ = "gh_events"
-    id = db.Column(db.BigInteger, primary_key=True)
-    event_type = db.Column(db.Text)
-    datetime = db.Column(db.DateTime)
-    day = db.Column(db.Integer)
-    hour = db.Column(db.Integer)
-    user_id = db.Column(db.Integer, db.ForeignKey("gh_users.id"), index=True)
-    user = db.relationship(User, backref=db.backref("events", lazy="dynamic"))
-    repo_id = db.Column(db.Integer, db.ForeignKey("gh_repos.id"), index=True)
-    repo = db.relationship(Repo, backref=db.backref("events", lazy="dynamic"))

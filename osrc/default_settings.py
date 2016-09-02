@@ -1,6 +1,6 @@
 import os
 
-DEBUG = False
+DEBUG = True
 SECRET_KEY = "development key"
 
 # Database stuff.
