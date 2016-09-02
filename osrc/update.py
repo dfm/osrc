@@ -3,6 +3,7 @@
 import time
 import json
 import gzip
+import flask
 import traceback
 from io import BytesIO
 from multiprocessing import Pool
@@ -12,6 +13,7 @@ from datetime import date, timedelta
 from .models import db
 from .asyncdl import Downloader
 from .process import parse_datetime
+from .redis import get_pipeline, format_key, get_connection
 
 
 # The URL template for the GitHub Archive.
@@ -45,26 +47,26 @@ class Parser(object):
                 on commit drop;
             create temporary table temp_gh_repos(like gh_repos)
                 on commit drop;
-            create temporary table temp_gh_events(like gh_events)
-                on commit drop;
         """)
 
         # Loop over events and fill the temporary tables.
         strt = time.time()
         count = 0
-        with gzip.GzipFile(fileobj=BytesIO(fh)) as f:
-            for line in f:
-                strt = time.time()
-                evt = json.loads(line.decode("utf-8"))
-                try:
-                    self._process_event(evt)
-                except:
-                    print("failed to process event:")
-                    print(evt)
-                    print("  exception:")
-                    traceback.print_exc()
-                    continue
-                count += 1
+        with get_pipeline() as pipe:
+            with gzip.GzipFile(fileobj=BytesIO(fh)) as f:
+                for line in f:
+                    strt = time.time()
+                    evt = json.loads(line.decode("utf-8"))
+                    try:
+                        self._process_event(pipe, evt)
+                    except:
+                        print("failed to process event:")
+                        print(evt)
+                        print("  exception:")
+                        traceback.print_exc()
+                        continue
+                    count += 1
+            pipe.execute()
 
         all_user_keys = set([])
         for user in self.users.values():
@@ -143,57 +145,64 @@ class Parser(object):
             ", ".join(map("temp_gh_repos.{0}".format, all_repo_keys))
         ))
 
-        all_event_keys = ["id", "event_type", "datetime", "day", "hour",
-                          "user_id", "repo_id"]
-
-        self.cursor.execute("""
-            LOCK TABLE gh_events IN EXCLUSIVE MODE;
-
-            UPDATE gh_events
-            SET {0}
-            FROM temp_gh_events
-            where temp_gh_events.id = gh_events.id;
-
-            INSERT INTO gh_events({1})
-            SELECT {2}
-            FROM temp_gh_events
-            LEFT OUTER JOIN gh_events ON (gh_events.id = temp_gh_events.id)
-            WHERE gh_events.id IS NULL;
-        """.format(
-            ", ".join(map("{0} = coalesce(temp_gh_events.{0}, gh_events.{0})"
-                          .format,
-                          all_event_keys)),
-            ", ".join(all_event_keys),
-            ", ".join(map("temp_gh_events.{0}".format, all_event_keys))
-        ))
-
         self.cursor.execute("commit;")
 
         print("... processed {0} events in {1} seconds"
               .format(count, time.time() - strt))
 
-    def _process_event(self, event):
-        dt = parse_datetime(event["created_at"])
-        self.cursor.execute("""
-            insert into temp_gh_events (
-                id, event_type, datetime, day, hour, user_id, repo_id
-            ) select
-                %(id)s, %(event_type)s, %(datetime)s, %(day)s, %(hour)s,
-                %(user_id)s, %(repo_id)s
-            where not exists (select id from temp_gh_events where id=%(id)s)
-        """, dict(
-            id=event["id"],
-            event_type=event["type"],
-            datetime=dt,
-            day=dt.weekday(),
-            hour=dt.hour,
-            user_id=event["actor"]["id"],
-            repo_id=event["repo"]["id"],
-        ))
+    def _redis_execute(self, pipe, cmd, key, *args, **kwargs):
+        key = format_key(key)
+        r = getattr(pipe, cmd)(key, *args, **kwargs)
+        pipe.expire(key, flask.current_app.config["REDIS_DEFAULT_TTL"])
+        return r
 
+    def _redis_update_hist(self, pipe, key, day, hour):
+        key = format_key(key)
+        hist = get_connection().hget(key, day)
+        if hist is None:
+            hist = [0] * 24
+        else:
+            hist = list(map(int, hist.decode("ascii").split(",")))
+        hist[hour] += 1
+        pipe.hset(key, day, ",".join(map("{0}".format, hist)))
+
+    def _process_event(self, pipe, event):
         # Process the event's user and repo.
-        self._process_user(event["actor"])
-        self._process_repo(event["repo"])
+        user_id = self._process_user(event["actor"])
+        repo_id = self._process_repo(event["repo"])
+
+        dt = parse_datetime(event["created_at"])
+        day = dt.weekday()
+        hour = dt.hour
+        key = "u:{0}:r:{1}".format(user_id, repo_id)
+        self._redis_execute(pipe, "zincrby", key, 1)
+
+        key = "r:{0}:u:{1}".format(repo_id, user_id)
+        self._redis_execute(pipe, "zincrby", key, 1)
+
+        evt = event["type"][:-5]
+        key = "u:{0}:e:{1}".format(user_id, evt)
+        self._redis_update_hist(pipe, key, day, hour)
+
+        key = "r:{0}:e:{1}".format(repo_id, evt)
+        self._redis_update_hist(pipe, key, day, hour)
+
+        # self.cursor.execute("""
+        #     insert into temp_gh_events (
+        #         id, event_type, datetime, day, hour, user_id, repo_id
+        #     ) select
+        #         %(id)s, %(event_type)s, %(datetime)s, %(day)s, %(hour)s,
+        #         %(user_id)s, %(repo_id)s
+        #     where not exists (select id from temp_gh_events where id=%(id)s)
+        # """, dict(
+        #     id=event["id"],
+        #     event_type=event["type"],
+        #     datetime=dt,
+        #     day=dt.weekday(),
+        #     hour=dt.hour,
+        #     user_id=event["actor"]["id"],
+        #     repo_id=event["repo"]["id"],
+        # ))
 
         # Parse any event specific elements.
         parser = self.event_types.get(event["type"], None)
@@ -213,6 +222,8 @@ class Parser(object):
                      ("location", "location")]:
             if b in user:
                 self.users[user["id"]][a] = user[b]
+
+        return user["id"]
 
     def _process_repo(self, repo):
         if "organization" in repo:
@@ -254,6 +265,8 @@ class Parser(object):
                      ("issues_count", "open_issues_count")]:
             if b in repo:
                 self.repos[repo["id"]][a] = repo[b]
+
+        return repo["id"]
 
     def _process_fork(self, payload):
         self._process_repo(payload["forkee"])

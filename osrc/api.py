@@ -20,10 +20,12 @@ def jsonp(f):
             r = f(*args, **kwargs)
             content = "{0}({1})".format(callback, r.data)
             mime = "application/javascript"
-            return flask.current_app.response_class(content, mimetype=mime,
+            resp = flask.current_app.response_class(content, mimetype=mime,
                                                     status=r.status_code)
         else:
-            return f(*args, **kwargs)
+            resp = f(*args, **kwargs)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
     return decorated_function
 
 

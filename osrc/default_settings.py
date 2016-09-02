@@ -12,6 +12,10 @@ SQLALCHEMY_DATABASE_URI = "postgresql://{0}:{1}@{2}:5432/postgres".format(
 )
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+REDIS_URI = "redis://localhost:6379/0"
+REDIS_PREFIX = "osrc2"
+REDIS_DEFAULT_TTL = 6 * 30 * 24 * 60 * 60
+
 # GitHub stuff.
 GITHUB_ID = None
 GITHUB_SECRET = None

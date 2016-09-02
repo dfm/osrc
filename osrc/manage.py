@@ -10,6 +10,7 @@ from flask.ext.script import Command, Option
 
 from .models import db
 from .update import update
+from .redis import get_connection
 
 
 class CreateTablesCommand(Command):
@@ -20,6 +21,7 @@ class CreateTablesCommand(Command):
 class DropTablesCommand(Command):
     def run(self):
         db.drop_all()
+        get_connection().flushdb()
 
 
 class UpdateCommand(Command):

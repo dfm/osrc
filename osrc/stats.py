@@ -10,7 +10,7 @@ from . import github
 from .models import db, Event, Repo, User
 
 
-def user_stats(username):
+def user_stats(username, tz_offset=True):
     user = github.get_user(username)
     if not user.active:
         return flask.abort(404)
@@ -44,6 +44,11 @@ def user_stats(username):
     ).filter_by(user_id=user.id).group_by(
             Event.user_id, Event.event_type, Event.hour).all():
         day_hist[t][k] = v
+
+    # Correct for the timezone.
+    if tz_offset and user.timezone:
+        for t, v in day_hist.items():
+            day_hist[t] = roll(v, user.timezone)
 
     # Build the results dictionary.
     return dict(
@@ -95,3 +100,13 @@ def repo_stats(username, reponame):
         contributors=[{"login": u.login, "name": u.name, "count": c}
                       for u, c in user_counts],
     )
+
+
+def roll(x, shift):
+    n = len(x)
+    if n == 0:
+        return x
+    shift %= n
+    s1 = slice(shift, n)
+    s2 = slice(0, shift)
+    return x[s1] + x[s2]
