@@ -1,9 +1,6 @@
 .DS_Store
 *.pyc
 venv
-flann
-values.sh
-data
 build
 dist
 *.egg-info

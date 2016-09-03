@@ -71,4 +71,8 @@ class Repo(db.Model):
             name=self.fullname,
             description=self.description,
             language=self.language,
+            stars=self.star_count,
+            watchers=self.watcher_count,
+            forks=self.fork_count,
+            issues=self.issues_count,
         )

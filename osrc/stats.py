@@ -1,31 +1,48 @@
 # -*- coding: utf-8 -*-
 
+import os
+import json
 import flask
-from sqlalchemy import func, desc
+import operator
+from math import sqrt
 from collections import defaultdict
 
 from . import github
-from .models import db, Repo, User
 from .redis import get_pipeline, get_connection, format_key
 
 __all__ = ["user_stats", "repo_stats"]
 
 
+def load_resource(
+    filename,
+    base=os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+):
+    return open(os.path.join(base, filename), "r")
+
+
 def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
-    user = github.get_user(username)
+    user = github.get_user(username, use_cache=False)
     if user is None or not user.active:
         return flask.abort(404)
 
-    # Get the repo counts.
+    #
+    # REPOS:
+    #
     conn = get_connection()
     repos = conn.zrevrange(format_key("u:{0}:r".format(user.id)), 0, 4,
                            withscores=True)
     repo_counts = []
+    languages = defaultdict(int)
     for repo_id, count in repos:
         r = github.get_repo(id=int(repo_id))
         repo_counts.append((r, int(count)))
+        if r.language is None:
+            continue
+        languages[r.language] += int(count)
 
-    # Find the social connections.
+    #
+    # FRIENDS:
+    #
     key = format_key("s:u:{0}".format(user.id))
     pipe = get_pipeline()
     pipe.exists(key)
@@ -48,93 +65,113 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
             continue
         friends.append(f)
 
-    # Get all the redis data.
-    # keys = get_connection().keys(format_key("u:{0}:*".format(user.id)))
-    # print(keys)
+    #
+    # SCHEDULE:
+    #
+    keys = get_connection().keys(format_key("u:{0}:e:*".format(user.id)))
+    with get_pipeline() as pipe:
+        for key in keys:
+            pipe.hgetall(key)
+        schedule = dict(zip((k.decode("ascii").split(":")[-1] for k in keys),
+                            pipe.execute()))
+    total_hist = defaultdict(int)
+    week_hist = defaultdict(lambda: list([0 for _ in range(7)]))
+    day_hist = defaultdict(lambda: list([0 for _ in range(24)]))
+    for t, vals in schedule.items():
+        for day, counts in vals.items():
+            counts = list(map(int, counts.decode("ascii").split(",")))
+            sm = sum(counts)
+            total_hist[t] += sm
+            week_hist[t][int(day)] += sm
+            for i, c in enumerate(counts):
+                day_hist[t][i] += c
 
-    # # Get the repo stats.
-    # repo_counts = db.session.query(Repo, func.count()) \
-    #     .select_from(Event) \
-    #     .filter(Event.user_id == user.id) \
-    #     .join(Repo) \
-    #     .group_by(Repo.id) \
-    #     .order_by(desc(func.count())) \
-    #     .all()
-    # langs = defaultdict(int)
-    # for r, c in repo_counts:
-    #     if r.language is None:
-    #         continue
-    #     langs[r.language] += c
+    # Correct for the timezone.
+    if tz_offset and user.timezone:
+        for t, v in day_hist.items():
+            day_hist[t] = roll(v, user.timezone)
 
-    # # Get the week histogram.
-    # week_hist = defaultdict(lambda: list([0 for _ in range(7)]))
-    # for _, k, t, v in db.session.query(
-    #     Event.user_id, Event.day, Event.event_type, func.count(),
-    # ).filter_by(user_id=user.id).group_by(
-    #         Event.user_id, Event.event_type, Event.day):
-    #     week_hist[t][k] = v
+    #
+    # PROSE DESCRIPTIONS:
+    #
 
-    # # Get the data histogram.
-    # day_hist = defaultdict(lambda: list([0 for _ in range(24)]))
-    # for _, k, t, v in db.session.query(
-    #     Event.user_id, Event.hour, Event.event_type, func.count(),
-    # ).filter_by(user_id=user.id).group_by(
-    #         Event.user_id, Event.event_type, Event.hour).all():
-    #     day_hist[t][k] = v
+    # A description of the most active day.
+    with load_resource("days.json") as f:
+        days = json.load(f)
+    h = [0 for _ in range(7)]
+    for v in week_hist.values():
+        for i, c in enumerate(v):
+            h[i] += c
+    descriptions = None
+    norm = sqrt(sum([v * v for v in h]))
+    if norm > 0.0:
+        h = [_ / norm for _ in h]
+        best = -1.0
+        for d in days:
+            vector = d["vector"]
+            norm = 1.0 / sqrt(sum([v * v for v in vector]))
+            dot = sum([(v*norm-w) ** 2 for v, w in zip(vector, h)])
+            if best < 0 or dot < best:
+                best = dot
+                day_desc = d["name"]
 
-    # # Correct for the timezone.
-    # if tz_offset and user.timezone:
-    #     for t, v in day_hist.items():
-    #         day_hist[t] = roll(v, user.timezone)
+        # A description of the most active time.
+        with load_resource("times.json") as f:
+            time_desc = json.load(f)
+        h = [0 for _ in range(24)]
+        for v in day_hist.values():
+            for i, c in enumerate(v):
+                h[i] += c
+        time_desc = time_desc[sorted(zip(h, range(24)))[-1][1]]
+
+        # Choose an adjective deterministically.
+        with load_resource("adjectives.json") as f:
+            adjs = json.load(f)
+        with load_resource("languages.json") as f:
+            langs = json.load(f)
+        l = sorted(languages.items(), key=operator.itemgetter(1))[-1]
+        lang = langs.get(l[0], l[0] + " coder")
+
+        # Combine the descriptions.
+        descriptions = dict(
+            work_habits="{0} who works best {1}".format(day_desc, time_desc),
+            language=adjs[abs(hash(user.login)) % len(adjs)] + " " + lang,
+        )
 
     # Build the results dictionary.
     return dict(
         user.basic_dict(),
-        # week=dict(week_hist),
-        # day=dict(day_hist),
-        # languages=dict(langs),
+        descriptions=descriptions,
+        events=dict(total_hist),
+        week=dict(week_hist),
+        day=dict(day_hist),
+        languages=dict(languages),
         repos=[{"name": r.fullname, "count": c} for r, c in repo_counts],
         friends=[{"fullname": u.name, "login": u.login} for u in friends],
     )
 
 
 def repo_stats(username, reponame):
-    repo = github.get_repo("{0}/{1}".format(username, reponame))
+    repo = github.get_repo("{0}/{1}".format(username, reponame),
+                           use_cache=False)
     if not repo.active or not repo.owner.active:
         return flask.abort(404)
 
-    # Get the user stats.
-    user_counts = db.session.query(User, func.count()) \
-        .select_from(Event) \
-        .filter(Event.repo_id == repo.id) \
-        .join(User) \
-        .group_by(User.id) \
-        .order_by(desc(func.count())) \
-        .limit(5) \
-        .all()
-
-    # Get the week histogram.
-    week_hist = defaultdict(lambda: list([0 for _ in range(7)]))
-    for _, k, t, v in db.session.query(
-        Event.repo_id, Event.day, Event.event_type, func.count(),
-    ).filter_by(repo_id=repo.id).group_by(
-            Event.repo_id, Event.event_type, Event.day):
-        week_hist[t][k] = v
-
-    # Get the data histogram.
-    day_hist = defaultdict(lambda: list([0 for _ in range(24)]))
-    for _, k, t, v in db.session.query(
-        Event.repo_id, Event.hour, Event.event_type, func.count(),
-    ).filter_by(repo_id=repo.id).group_by(
-            Event.repo_id, Event.event_type, Event.hour).all():
-        day_hist[t][k] = v
+    #
+    # CONTRIBUTORS:
+    #
+    conn = get_connection()
+    users = conn.zrevrange(format_key("r:{0}:u".format(repo.id)), 0, 4,
+                           withscores=True)
+    user_counts = []
+    for user_id, count in users:
+        u = github.get_user(id=int(user_id))
+        user_counts.append((u, int(count)))
 
     # Build the results dictionary.
     return dict(
         repo.basic_dict(),
         owner=None if repo.owner is None else repo.owner.basic_dict(),
-        week=dict(week_hist),
-        day=dict(day_hist),
         contributors=[{"login": u.login, "name": u.name, "count": c}
                       for u, c in user_counts],
     )
