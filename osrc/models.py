@@ -24,19 +24,22 @@ class User(db.Model):
     timezone = db.Column(db.Integer)
     active = db.Column(db.Boolean, default=True)
 
-    def basic_dict(self):
+    def basic_dict(self, stopwords=["the", "dr", "mr", "mrs"]):
+        name = self.name if self.name is not None else self.login
+        fn = [t for t in name.split() if t.lower() not in stopwords]
         return dict(
             id=self.id,
             username=self.login,
             type=self.user_type,
-            timezone=self.timezone,
             location=dict(
                 name=self.location,
                 lat=self.lat,
                 lng=self.lng,
+                timezone=self.timezone,
             ),
             avatar_url=self.avatar_url,
-            fullname=self.name if self.name is not None else self.login,
+            firstname=fn[0] if len(fn) else None,
+            fullname=name,
         )
 
 

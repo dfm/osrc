@@ -43,27 +43,55 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     #
     # FRIENDS:
     #
-    key = format_key("s:u:{0}".format(user.id))
+    key = format_key("s:u:{0}:u".format(user.id))
     pipe = get_pipeline()
     pipe.exists(key)
-    pipe.zrevrange(key, 0, max_connected-1)
+    pipe.zrevrange(key, 0, max_connected-1, withscores=True)
     flag, social = pipe.execute()
     if not flag:
-        [pipe.zrevrange(format_key("r:{0}:u".format(int(r))), 0, max_users)
+        [pipe.zrevrange(format_key("r:{0}:u".format(int(r))), 0, max_users,
+                        withscores=True)
          for r, _ in repos]
         users = pipe.execute()
-        [pipe.zincrby(key, u, 1) for l in users for u in l
+        [pipe.zincrby(key, u, c) for l in users for u, c in l
          if int(u) != user.id]
         pipe.expire(key, 172800)
-        pipe.zrevrange(key, 0, max_connected-1)
+        pipe.zrevrange(key, 0, max_connected-1, withscores=True)
         social = pipe.execute()[-1]
 
     friends = []
-    for u in social:
+    for u, c in social:
         f = github.get_user(id=int(u))
         if f.user_type != "User":
             continue
-        friends.append(f)
+        friends.append((f, c))
+
+    #
+    # SIMILAR REPOS:
+    #
+    key = format_key("s:u:{0}:r".format(user.id))
+    pipe = get_pipeline()
+    pipe.exists(key)
+    pipe.zrevrange(key, 0, max_connected-1, withscores=True)
+    flag, social_repos = pipe.execute()
+    if not flag:
+        all_repos = set(conn.zrevrange(format_key("u:{0}:r".format(user.id)),
+                                       0, -1))
+        [pipe.zrevrange(format_key("u:{0}:r".format(int(u))), 0, max_users,
+                        withscores=True)
+         for u, _ in social]
+        for row, (_, c0) in zip(pipe.execute(), social):
+            for r, c in row:
+                if r in all_repos:
+                    continue
+                pipe.zincrby(key, r, c + c0)
+        pipe.expire(key, 172800)
+        pipe.zrevrange(key, 0, max_connected-1, withscores=True)
+        social_repos = pipe.execute()[-1]
+
+    repo_recs = []
+    for r, c in social_repos:
+        repo_recs.append((github.get_repo(id=int(r)), c))
 
     #
     # SCHEDULE:
@@ -132,22 +160,35 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
         l = sorted(languages.items(), key=operator.itemgetter(1))[-1]
         lang = langs.get(l[0], l[0] + " coder")
 
+        # Describe the most common event type.
+        with load_resource("event_actions.json") as f:
+            acts = json.load(f)
+        a = sorted(total_hist.items(), key=operator.itemgetter(1))[-1]
+        action = acts.get(a[0], "pushing code")
+
         # Combine the descriptions.
         descriptions = dict(
             work_habits="{0} who works best {1}".format(day_desc, time_desc),
-            language=adjs[abs(hash(user.login)) % len(adjs)] + " " + lang,
+            language="{0} {1} who excels at {2}".format(
+                adjs[abs(hash(user.login)) % len(adjs)], lang, action,
+            ),
         )
 
     # Build the results dictionary.
     return dict(
         user.basic_dict(),
         descriptions=descriptions,
-        events=dict(total_hist),
+        events=[{"type": t, "count": c} for t, c in sorted(
+            total_hist.items(), reverse=True, key=operator.itemgetter(1))],
         week=dict(week_hist),
         day=dict(day_hist),
-        languages=dict(languages),
+        languages=[{"language": l, "count": c}
+                   for l, c in sorted(languages.items(), reverse=True,
+                                      key=operator.itemgetter(1))],
         repos=[{"name": r.fullname, "count": c} for r, c in repo_counts],
-        friends=[{"fullname": u.name, "login": u.login} for u in friends],
+        friends=[{"fullname": u.name, "login": u.login, "weight": c}
+                 for u, c in friends],
+        repo_recs=[{"name": r.fullname, "weight": c} for r, c in repo_recs],
     )
 
 
