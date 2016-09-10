@@ -31,6 +31,7 @@ class User(db.Model):
             username=self.login,
             type=self.user_type,
             fullname=name,
+            avatar_url=self.avatar_url,
         )
 
     def basic_dict(self, stopwords=["the", "dr", "mr", "mrs"]):
@@ -45,7 +46,6 @@ class User(db.Model):
                 lng=self.lng,
                 timezone=self.timezone,
             ),
-            avatar_url=self.avatar_url,
             firstname=fn[0] if len(fn) else None,
         )
 
