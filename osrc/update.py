@@ -152,9 +152,8 @@ class Parser(object):
 
     def _redis_execute(self, pipe, cmd, key, *args, **kwargs):
         key = format_key(key)
-        r = getattr(pipe, cmd)(key, *args, **kwargs)
+        getattr(pipe, cmd)(key, *args, **kwargs)
         pipe.expire(key, flask.current_app.config["REDIS_DEFAULT_TTL"])
-        return r
 
     def _redis_update_hist(self, pipe, key, day, hour):
         key = format_key(key)
@@ -181,6 +180,8 @@ class Parser(object):
         self._redis_execute(pipe, "zincrby", key, user_id, 1)
 
         evt = event["type"][:-5]
+        key = "u:{0}:e".format(user_id)
+        self._redis_execute(pipe, "zincrby", key, evt, 1)
         key = "u:{0}:e:{1}".format(user_id, evt)
         self._redis_update_hist(pipe, key, day, hour)
 

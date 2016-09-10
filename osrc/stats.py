@@ -8,6 +8,7 @@ from math import sqrt
 from collections import defaultdict
 
 from . import github
+from .models import User, Repo
 from .redis import get_pipeline, get_connection, format_key
 
 __all__ = ["user_stats", "repo_stats"]
@@ -21,7 +22,7 @@ def load_resource(
 
 
 def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
-    user = github.get_user(username, use_cache=False)
+    user = github.get_user(username)
     if user is None or not user.active:
         return flask.abort(404)
 
@@ -43,66 +44,41 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     #
     # FRIENDS:
     #
-    key = format_key("s:u:{0}:u".format(user.id))
-    pipe = get_pipeline()
-    pipe.exists(key)
-    pipe.zrevrange(key, 0, max_connected-1, withscores=True)
-    flag, social = pipe.execute()
-    if not flag:
-        [pipe.zrevrange(format_key("r:{0}:u".format(int(r))), 0, max_users,
-                        withscores=True)
-         for r, _ in repos]
-        users = pipe.execute()
-        [pipe.zincrby(key, u, c) for l in users for u, c in l
-         if int(u) != user.id]
-        pipe.expire(key, 172800)
-        pipe.zrevrange(key, 0, max_connected-1, withscores=True)
-        social = pipe.execute()[-1]
-
+    with load_resource("graph_user_user.lua") as script:
+        get_users = get_connection().register_script(script.read())
+    social = get_users(keys=["{0}".format(user.id).encode("ascii")],
+                       args=[flask.current_app.config["REDIS_PREFIX"]])
     friends = []
-    for u, c in social:
-        f = github.get_user(id=int(u))
-        if f.user_type != "User":
-            continue
-        friends.append((f, c))
+    if len(social):
+        ids = map(int, social[::2])
+        friends = list(zip(User.query.filter(User.id.in_(ids)).all(),
+                           map(int, social[1::2])))
 
     #
     # SIMILAR REPOS:
     #
-    key = format_key("s:u:{0}:r".format(user.id))
-    pipe = get_pipeline()
-    pipe.exists(key)
-    pipe.zrevrange(key, 0, max_connected-1, withscores=True)
-    flag, social_repos = pipe.execute()
-    if not flag:
-        all_repos = set(conn.zrevrange(format_key("u:{0}:r".format(user.id)),
-                                       0, -1))
-        [pipe.zrevrange(format_key("u:{0}:r".format(int(u))), 0, max_users,
-                        withscores=True)
-         for u, _ in social]
-        for row, (_, c0) in zip(pipe.execute(), social):
-            for r, c in row:
-                if r in all_repos:
-                    continue
-                pipe.zincrby(key, r, c + c0)
-        pipe.expire(key, 172800)
-        pipe.zrevrange(key, 0, max_connected-1, withscores=True)
-        social_repos = pipe.execute()[-1]
-
+    with load_resource("graph_user_repo.lua") as script:
+        get_repos = get_connection().register_script(script.read())
+    repo_scores = get_repos(keys=["{0}".format(user.id).encode("ascii")],
+                            args=[flask.current_app.config["REDIS_PREFIX"]])
     repo_recs = []
-    for r, c in social_repos:
-        repo_recs.append((github.get_repo(id=int(r)), c))
+    if len(repo_scores):
+        ids = map(int, repo_scores[::2])
+        repo_recs = list(zip(Repo.query.filter(Repo.id.in_(ids)).all(),
+                             map(int, repo_scores[1::2])))
 
     #
     # SCHEDULE:
     #
-    keys = get_connection().keys(format_key("u:{0}:e:*".format(user.id)))
     with get_pipeline() as pipe:
-        for key in keys:
+        pipe.zrevrange(format_key("u:{0}:e".format(user.id)), 0, 4,
+                       withscores=True)
+        keys = [(k.decode("ascii"), c) for k, c in pipe.execute()[0]]
+        for k, _ in keys:
+            key = format_key("u:{0}:e:{1}".format(user.id, k))
             pipe.hgetall(key)
-        schedule = dict(zip((k.decode("ascii").split(":")[-1] for k in keys),
-                            pipe.execute()))
-    total_hist = defaultdict(int)
+        schedule = dict(zip((k for k, _ in keys), pipe.execute()))
+    total_hist = dict((k, c) for k, c in keys)
     week_hist = defaultdict(lambda: list([0 for _ in range(7)]))
     day_hist = defaultdict(lambda: list([0 for _ in range(24)]))
     for t, vals in schedule.items():
@@ -155,10 +131,12 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
         # Choose an adjective deterministically.
         with load_resource("adjectives.json") as f:
             adjs = json.load(f)
-        with load_resource("languages.json") as f:
-            langs = json.load(f)
-        l = sorted(languages.items(), key=operator.itemgetter(1))[-1]
-        lang = langs.get(l[0], l[0] + " coder")
+        lang = "coder"
+        if len(languages):
+            with load_resource("languages.json") as f:
+                langs = json.load(f)
+            l = sorted(languages.items(), key=operator.itemgetter(1))[-1]
+            lang = langs.get(l[0], l[0] + " coder")
 
         # Describe the most common event type.
         with load_resource("event_actions.json") as f:
