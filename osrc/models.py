@@ -13,7 +13,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_type = db.Column(db.Text)
     name = db.Column(db.Text)
-    login = db.Column(db.Text, index=True)
+    login = db.Column(db.Text)
     location = db.Column(db.Text)
     lat = db.Column(db.Float)
     lng = db.Column(db.Float)
@@ -24,13 +24,21 @@ class User(db.Model):
     timezone = db.Column(db.Integer)
     active = db.Column(db.Boolean, default=True)
 
-    def basic_dict(self, stopwords=["the", "dr", "mr", "mrs"]):
+    def short_dict(self):
         name = self.name if self.name is not None else self.login
-        fn = [t for t in name.split() if t.lower() not in stopwords]
         return dict(
             id=self.id,
             username=self.login,
             type=self.user_type,
+            fullname=name,
+        )
+
+    def basic_dict(self, stopwords=["the", "dr", "mr", "mrs"]):
+        short = self.short_dict()
+        fn = [t for t in short["fullname"].split()
+              if t.lower() not in stopwords]
+        return dict(
+            short,
             location=dict(
                 name=self.location,
                 lat=self.lat,
@@ -39,7 +47,6 @@ class User(db.Model):
             ),
             avatar_url=self.avatar_url,
             firstname=fn[0] if len(fn) else None,
-            fullname=name,
         )
 
 
@@ -47,7 +54,7 @@ class Repo(db.Model):
     __tablename__ = "gh_repos"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text)
-    fullname = db.Column(db.Text, index=True)
+    fullname = db.Column(db.Text)
     description = db.Column(db.Text)
     language = db.Column(db.Text)
     fork = db.Column(db.Boolean)
@@ -68,10 +75,15 @@ class Repo(db.Model):
     owner_id = db.Column(db.Integer, db.ForeignKey("gh_users.id"))
     owner = db.relationship(User, backref=db.backref("repos", lazy="dynamic"))
 
-    def basic_dict(self):
+    def short_dict(self):
         return dict(
             id=self.id,
             name=self.fullname,
+        )
+
+    def basic_dict(self):
+        return dict(
+            self.short_dict(),
             description=self.description,
             language=self.language,
             stars=self.star_count,
@@ -79,3 +91,8 @@ class Repo(db.Model):
             forks=self.fork_count,
             issues=self.issues_count,
         )
+
+db.Index("ix_gh_users_login_lower",
+         db.func.lower(db.metadata.tables["gh_users"].c.login))
+db.Index("ix_gh_repos_fullaname_lower",
+         db.func.lower(db.metadata.tables["gh_repos"].c.fullname))

@@ -98,10 +98,6 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     #
     # PROSE DESCRIPTIONS:
     #
-
-    # A description of the most active day.
-    with load_resource("days.json") as f:
-        days = json.load(f)
     h = [0 for _ in range(7)]
     for v in week_hist.values():
         for i, c in enumerate(v):
@@ -109,6 +105,9 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     descriptions = None
     norm = sqrt(sum([v * v for v in h]))
     if norm > 0.0:
+        # A description of the most active day.
+        with load_resource("days.json") as f:
+            days = json.load(f)
         h = [_ / norm for _ in h]
         best = -1.0
         for d in days:
@@ -163,36 +162,48 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
         languages=[{"language": l, "count": c}
                    for l, c in sorted(languages.items(), reverse=True,
                                       key=operator.itemgetter(1))],
-        repos=[{"name": r.fullname, "count": c} for r, c in repo_counts],
-        friends=[{"fullname": u.name, "login": u.login, "weight": c}
-                 for u, c in friends],
-        repo_recs=[{"name": r.fullname, "weight": c} for r, c in repo_recs],
+        repos=[dict(r.short_dict(), count=c) for r, c in repo_counts],
+        friends=[dict(u.short_dict(), weight=c) for u, c in friends],
+        repo_recs=[dict(r.short_dict(), weight=c) for r, c in repo_recs],
     )
 
 
 def repo_stats(username, reponame):
-    repo = github.get_repo("{0}/{1}".format(username, reponame),
-                           use_cache=False)
-    if not repo.active or not repo.owner.active:
+    repo = github.get_repo("{0}/{1}".format(username, reponame))
+    if repo is None or not repo.active or not repo.owner.active:
         return flask.abort(404)
 
     #
     # CONTRIBUTORS:
     #
+    user_counts = []
     conn = get_connection()
     users = conn.zrevrange(format_key("r:{0}:u".format(repo.id)), 0, 4,
                            withscores=True)
-    user_counts = []
-    for user_id, count in users:
-        u = github.get_user(id=int(user_id))
-        user_counts.append((u, int(count)))
+    if len(users):
+        ids, counts = zip(*(map(lambda u: map(int, u), users)))
+        user_counts = list(zip(User.query.filter(User.id.in_(ids)).all(),
+                           counts))
+
+    #
+    # SIMILAR REPOS:
+    #
+    repo_recs = []
+    with load_resource("graph_repo_repo.lua") as script:
+        get_repos = get_connection().register_script(script.read())
+    social = get_repos(keys=["{0}".format(repo.id).encode("ascii")],
+                       args=[flask.current_app.config["REDIS_PREFIX"]])
+    if len(social):
+        ids = map(int, social[::2])
+        repo_recs = list(zip(Repo.query.filter(Repo.id.in_(ids)).all(),
+                             map(int, social[1::2])))
 
     # Build the results dictionary.
     return dict(
         repo.basic_dict(),
         owner=None if repo.owner is None else repo.owner.basic_dict(),
-        contributors=[{"login": u.login, "name": u.name, "count": c}
-                      for u, c in user_counts],
+        contributors=[dict(u.short_dict(), count=c) for u, c in user_counts],
+        related_repos=[dict(r.short_dict(), weight=c) for r, c in repo_recs],
     )
 
 

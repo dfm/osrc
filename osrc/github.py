@@ -85,15 +85,13 @@ def get_user(username=None, id=None, use_cache=True):
 
 def get_repo(fullname=None, id=None, use_cache=True):
     if id is not None:
-        repo = Repo.query.filter(Repo.id == id) \
-            .order_by(Repo.id.desc()).first()
+        repo = Repo.query.filter(Repo.id == id).first()
         if repo is None:
             return None
         fullname = repo.fullname
     elif fullname is not None:
         repo = Repo.query.filter(
-            func.lower(Repo.fullname) == func.lower(fullname)) \
-            .order_by(Repo.id.desc()).first()
+            func.lower(Repo.fullname) == func.lower(fullname)).first()
     else:
         return None
 
