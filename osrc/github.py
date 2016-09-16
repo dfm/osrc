@@ -40,17 +40,18 @@ def update_cache(flag, obj):
         pipe.execute()
 
 
-def get_user(username=None, id=None, use_cache=True):
-    if id is not None:
-        user = User.query.filter(User.id == id).first()
-        if user is None:
+def get_user(username=None, id=None, user=None, use_cache=True):
+    if user is None:
+        if id is not None:
+            user = User.query.filter(User.id == id).first()
+            if user is None:
+                return None
+            username = user.login
+        elif username is not None:
+            user = User.query.filter(
+                func.lower(User.login) == func.lower(username)).first()
+        else:
             return None
-        username = user.login
-    elif username is not None:
-        user = User.query.filter(
-            func.lower(User.login) == func.lower(username)).first()
-    else:
-        return None
 
     # Check to see if the cache is up to date.
     if use_cache and user is not None:
@@ -62,6 +63,7 @@ def get_user(username=None, id=None, use_cache=True):
 
     # Update the user information using the API.
     etag = None if user is None else user.etag
+    username = user.login if username is None else username
     try:
         r = gh_request("/users/{0}".format(username), etag=etag)
     except requests.exceptions.ConnectionError:
@@ -83,17 +85,18 @@ def get_user(username=None, id=None, use_cache=True):
     return user
 
 
-def get_repo(fullname=None, id=None, use_cache=True):
-    if id is not None:
-        repo = Repo.query.filter(Repo.id == id).first()
-        if repo is None:
+def get_repo(fullname=None, id=None, repo=None, use_cache=True):
+    if repo is None:
+        if id is not None:
+            repo = Repo.query.filter(Repo.id == id).first()
+            if repo is None:
+                return None
+            fullname = repo.fullname
+        elif fullname is not None:
+            repo = Repo.query.filter(
+                func.lower(Repo.fullname) == func.lower(fullname)).first()
+        else:
             return None
-        fullname = repo.fullname
-    elif fullname is not None:
-        repo = Repo.query.filter(
-            func.lower(Repo.fullname) == func.lower(fullname)).first()
-    else:
-        return None
 
     # Check to see if the cache is up to date.
     if use_cache and repo is not None:
@@ -105,6 +108,7 @@ def get_repo(fullname=None, id=None, use_cache=True):
 
     # Update the user information using the API.
     etag = None if repo is None else repo.etag
+    fullname = repo.fullname if fullname is None else fullname
     try:
         r = gh_request("/repos/{0}".format(fullname), etag=etag)
     except requests.exceptions.ConnectionError:

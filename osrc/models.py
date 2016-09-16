@@ -2,6 +2,8 @@
 
 from flask.ext.sqlalchemy import SQLAlchemy
 
+from .utils import load_resource
+
 __all__ = ["db", "User", "Repo"]
 
 
@@ -28,15 +30,15 @@ class User(db.Model):
         name = self.name if self.name is not None else self.login
         return dict(
             id=self.id,
-            username=self.login,
+            login=self.login,
             type=self.user_type,
-            fullname=name,
+            name=name,
             avatar_url=self.avatar_url,
         )
 
     def basic_dict(self, stopwords=["the", "dr", "mr", "mrs"]):
         short = self.short_dict()
-        fn = [t for t in short["fullname"].split()
+        fn = [t for t in short["name"].split()
               if t.lower() not in stopwords]
         return dict(
             short,

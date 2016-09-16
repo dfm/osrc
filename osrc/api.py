@@ -30,22 +30,31 @@ def jsonp(f):
 
 
 @api.errorhandler(404)
-def error_handler(e):
-    resp = flask.jsonify(message="Not Found")
+def error_handler_404(e):
+    resp = flask.jsonify(message="Not found")
     resp.status_code = 404
     return resp
 
 
-@api.route("/<username>.json")
+@api.errorhandler(403)
+def error_handler_403(e):
+    resp = flask.jsonify(message="This user has opted out of the OSRC")
+    resp.status_code = 403
+    return resp
+
+
+@api.route("/<username>")
 @jsonp
 def user(username):
     stats = user_stats(username)
     if stats is None:
         return flask.abort(404)
+    if stats is False:
+        return flask.abort(403)
     return flask.jsonify(stats)
 
 
-@api.route("/<username>/<reponame>.json")
+@api.route("/<username>/<reponame>")
 @jsonp
 def repo(username, reponame):
     stats = repo_stats(username, reponame)

@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from . import google
+from .utils import load_resource
 from .models import db, User, Repo
 
 __all__ = [
@@ -75,6 +76,10 @@ def process_user(user, etag=None):
     user_obj = User.query.filter_by(id=user["id"]).first()
     update_tz = True
     if user_obj is None:
+        # Make sure that users who opted out previously have active=False.
+        with load_resource("optout.txt") as f:
+            optouts = f.read().split("\n")
+
         user_obj = User(
             id=user["id"],
             user_type=user.get("type", "User"),
@@ -82,8 +87,10 @@ def process_user(user, etag=None):
             login=user["login"],
             location=user.get("location"),
             avatar_url=user["avatar_url"],
+            active=user["login"].lower() not in optouts,
             etag=etag,
         )
+
         db.session.add(user_obj)
     else:
         update_tz = user_obj.location != user.get("location",

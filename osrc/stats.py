@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import os
 import json
 import flask
 import operator
@@ -9,22 +8,18 @@ from collections import defaultdict
 
 from . import github
 from .models import User, Repo
+from .utils import load_resource
 from .redis import get_pipeline, get_connection, format_key
 
 __all__ = ["user_stats", "repo_stats"]
 
 
-def load_resource(
-    filename,
-    base=os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-):
-    return open(os.path.join(base, filename), "r")
-
-
 def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     user = github.get_user(username)
-    if user is None or not user.active:
-        return flask.abort(404)
+    if user is None:
+        return None
+    if not user.active:
+        return False
 
     #
     # REPOS:
@@ -171,7 +166,7 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
 def repo_stats(username, reponame):
     repo = github.get_repo("{0}/{1}".format(username, reponame))
     if repo is None or not repo.active or not repo.owner.active:
-        return flask.abort(404)
+        return None
 
     #
     # CONTRIBUTORS:
