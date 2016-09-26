@@ -18,7 +18,7 @@ def jsonp(f):
         callback = flask.request.args.get("callback", False)
         if callback:
             r = f(*args, **kwargs)
-            content = "{0}({1})".format(callback, r.data)
+            content = "{0}({1})".format(callback, r.data.decode("utf-8"))
             mime = "application/javascript"
             resp = flask.current_app.response_class(content, mimetype=mime,
                                                     status=r.status_code)
@@ -43,7 +43,7 @@ def error_handler_403(e):
     return resp
 
 
-@api.route("/<username>")
+@api.route("/<username>", strict_slashes=False)
 @jsonp
 def user(username):
     stats = user_stats(username)
@@ -54,7 +54,7 @@ def user(username):
     return flask.jsonify(stats)
 
 
-@api.route("/<username>/<reponame>")
+@api.route("/<username>/<reponame>", strict_slashes=False)
 @jsonp
 def repo(username, reponame):
     stats = repo_stats(username, reponame)

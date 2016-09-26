@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>{{stats.login|trim}}'s Open Source Report Card</title>
+
+<link rel="stylesheet" href="{{ url_for("static", filename="normalize.css") }}" type="text/css" media="screen" charset="utf-8">
+<link rel="stylesheet" href="{{ url_for("static", filename="osrc.css") }}" type="text/css" media="screen" charset="utf-8">
+
+</head>
+<body>
+
+<div class="container">
+
+<div class="header">
+<div class="avatar">
+    <img src="{{stats.avatar_url}}&s=200" alt="avatar-img" width="100" height="100">
+</div>
+<div class="titles">{{stats.name}}</div>
+</div>
+
+<div class="content">
+  <p>
+    {{stats.name}}
+    {% if stats.login != stats.name -%}(known as <a href="https://github.com/{{stats.login}}">{{stats.login}} on GitHub</a>){%- endif %}
+    {% if stats.type == "Organization" -%}
+        is an organization and the OSRC doesn't work for organizations yet.
+    {% else -%}
+        {% if stats.descriptions -%}
+            is <a href="#schedule">{{stats.descriptions.work_habits}}</a>.
+            {{stats.firstname}} is <a href="#language">{{stats.descriptions.language}}</a>.
+            {% if stats.repos -%}
+                In the OSRC archives, the main repository that {{stats.firstname}} has interacted with is
+                <a href="{{url_for('.repo', username=stats.repos[0].username, reponame=stats.repos[0].reponame)}}">{{stats.repos[0].name}}</a>.
+            {%- endif %}
+            {% if stats.friends -%}
+                Given their open source behavior, {{stats.firstname}} is (or should be) friends with
+                <a href="{{url_for('.user', username=stats.friends[0].login)}}">{{stats.friends[0].login}}</a>.
+            {%- endif %}
+        {% else -%}
+            doesn't really use GitHub very much.
+        {%- endif %}
+    {%- endif %}
+  </p>
+</div>
+
+</div>
+
+<script src="{{ url_for("static", filename="d3.min.js") }}"></script>
+<script>
+// Automatically injected data for this user:
+var events={{stats.events|safe}},day={{stats.day|safe}},week={{stats.week|safe}};
+</script>
+
+</body>
+</html>

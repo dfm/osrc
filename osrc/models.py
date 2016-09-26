@@ -2,12 +2,12 @@
 
 from flask.ext.sqlalchemy import SQLAlchemy
 
-from .utils import load_resource
-
 __all__ = ["db", "User", "Repo"]
 
 
 db = SQLAlchemy()
+
+STOPWORDS = ["the", "dr", "mr", "mrs"]
 
 
 class User(db.Model):
@@ -26,20 +26,27 @@ class User(db.Model):
     timezone = db.Column(db.Integer)
     active = db.Column(db.Boolean, default=True)
 
+    @property
+    def render_name(self):
+        return self.name if self.name is not None else self.login
+
+    @property
+    def firstname(self):
+        fn = [t for t in self.render_name.split()
+              if t.lower() not in STOPWORDS]
+        return fn[0] if len(fn) else None
+
     def short_dict(self):
-        name = self.name if self.name is not None else self.login
         return dict(
             id=self.id,
             login=self.login,
             type=self.user_type,
-            name=name,
+            name=self.render_name,
             avatar_url=self.avatar_url,
         )
 
-    def basic_dict(self, stopwords=["the", "dr", "mr", "mrs"]):
+    def basic_dict(self, ):
         short = self.short_dict()
-        fn = [t for t in short["name"].split()
-              if t.lower() not in stopwords]
         return dict(
             short,
             location=dict(
@@ -48,7 +55,7 @@ class User(db.Model):
                 lng=self.lng,
                 timezone=self.timezone,
             ),
-            firstname=fn[0] if len(fn) else None,
+            firstname=self.firstname,
         )
 
 
@@ -81,6 +88,8 @@ class Repo(db.Model):
         return dict(
             id=self.id,
             name=self.fullname,
+            username=self.fullname.split("/")[0],
+            reponame="/".join(self.fullname.split("/")[1:]),
         )
 
     def basic_dict(self):

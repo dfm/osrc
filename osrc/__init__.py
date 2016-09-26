@@ -26,6 +26,9 @@ def create_app(config_filename=None):
     from .api import api
     app.register_blueprint(api, url_prefix="/api")
 
+    from .frontend import frontend
+    app.register_blueprint(frontend)
+
     # Debugging.
     if app.debug:
         from werkzeug.contrib.profiler import ProfilerMiddleware
