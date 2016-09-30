@@ -1,3 +1,5 @@
+@import 'https://fonts.googleapis.com/css?family=Source+Sans+Pro:900';
+
 html {
     color-profile: sRGB;
     rendering-intent: auto;
@@ -43,11 +45,16 @@ a {
     position: fixed;
     top: 10px;
     left: 10px;
-    width: 50px;
-    height: 50px;
-    background-image: url('/static/logo.png?v=2');
-    background-size: 50px 50px;
-    background-repeat: no-repeat;
+    width: 36px;
+    height: 36px;
+    font-size: 21px;
+    line-height: 18px;
+    font-weight: 900;
+    text-align: center;
+    padding: 5px;
+    border: 5px solid #222;
+    color: #222;
+    font-family: 'Source Sans Pro', sans-serif;
 }
 
 .avatar {
