@@ -14,7 +14,7 @@ from .redis import get_pipeline, get_connection, format_key
 __all__ = ["user_stats", "repo_stats"]
 
 
-def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
+def user_stats(username, tz_offset=True):
     user = github.get_user(username)
     if user is None:
         return None
@@ -88,7 +88,7 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     # Correct for the timezone.
     if tz_offset and user.timezone:
         for t, v in day_hist.items():
-            day_hist[t] = roll(v, user.timezone)
+            day_hist[t] = roll(v, -user.timezone)
 
     #
     # PROSE DESCRIPTIONS:
@@ -150,11 +150,12 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     return dict(
         user.basic_dict(),
         descriptions=descriptions,
-        events=[{"type": t, "count": c} for t, c in sorted(
+        total=int(sum(total_hist.values())),
+        events=[{"type": t, "count": int(c)} for t, c in sorted(
             total_hist.items(), reverse=True, key=operator.itemgetter(1))],
         week=dict(week_hist),
         day=dict(day_hist),
-        languages=[{"language": l, "count": c}
+        languages=[{"language": l, "count": int(c)}
                    for l, c in sorted(languages.items(), reverse=True,
                                       key=operator.itemgetter(1))],
         repos=[dict(r.short_dict(), count=c) for r, c in repo_counts],

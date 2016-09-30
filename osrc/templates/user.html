@@ -5,6 +5,7 @@
 <title>{{stats.login|trim}}'s Open Source Report Card</title>
 
 <link rel="stylesheet" href="{{ url_for("static", filename="normalize.css") }}" type="text/css" media="screen" charset="utf-8">
+<link rel="stylesheet" href="{{ url_for("static", filename="tipped.css") }}" type="text/css" media="screen" charset="utf-8">
 <link rel="stylesheet" href="{{ url_for("static", filename="osrc.css") }}" type="text/css" media="screen" charset="utf-8">
 
 </head>
@@ -26,9 +27,9 @@
     {% if stats.type == "Organization" -%}
         is an organization and the OSRC doesn't work for organizations yet.
     {% else -%}
-        {% if stats.descriptions -%}
+        {% if stats.descriptions and stats.events|length > 0 -%}
             is <a href="#schedule">{{stats.descriptions.work_habits}}</a>.
-            {{stats.firstname}} is <a href="#language">{{stats.descriptions.language}}</a>.
+            {{stats.firstname}} is <a href="#activity">{{stats.descriptions.language}}</a>.
             {% if stats.repos -%}
                 In the OSRC archives, the main repository that {{stats.firstname}} has interacted with is
                 <a href="{{url_for('.repo', username=stats.repos[0].username, reponame=stats.repos[0].reponame)}}">{{stats.repos[0].name}}</a>.
@@ -37,19 +38,172 @@
                 Given their open source behavior, {{stats.firstname}} is (or should be) friends with
                 <a href="{{url_for('.user', username=stats.friends[0].login)}}">{{stats.friends[0].login}}</a>.
             {%- endif %}
+
+</p>
+
+<h2 id="schedule">{{stats.firstname}}'s Schedule</h2>
+<p>
+  The two following charts show {{stats.name}}'s average weekly and daily
+  schedules. These charts give significant insight into {{stats.firstname}}'s
+  character as a developer.
+  {% if stats.events|length > 1 -%}
+  The colors in the charts indicate the fraction of events that are
+  {%- for i, event in enumerate(stats.events) -%}
+  {% if loop.last %} and{% endif %}
+  <span class="evttype" data-ind="{{ i }}">{{ event_verbs[event.type] }}</span>{%- if not loop.last -%},{%- endif -%}
+  {%- endfor %}.
+  {%- endif %}
+  <div class="hist-block">
+    <div id="week" class="hist"></div>
+    <div id="day" class="hist"></div>
+  </div>
+  {% if stats.location.name -%}
+  <strong>Note</strong>: an attempt has been made to show these plots in
+  in the correct timezone based on {{stats.firstname}}'s location ({{stats.location.name}})
+  but this procedure is imperfect at best.
+  {%- endif %}
+</p>
+
+<h2 id="activity">Activity &amp; Languages</h2>
+<p>
+{% if stats.events|length > 1 -%}
+  We already know that {{stats.firstname}}
+  {% if stats.events[0].type in event_actions %}loves
+  {{ event_actions[stats.events[0].type] }} whenever they're not pushing code
+  {%- else %}loves pushing code{% endif %}
+  but the following chart sheds some light onto what {{stats.firstname}}
+  does with their open source time. In the full event stream analyzed for
+  this report, there are a total of <strong>{{stats.total}}</strong> events recorded for
+  {{stats.firstname}}.
+  The colors in the pie chart below indicate the number of events that are
+  {%- for i, event in enumerate(stats.events) -%}
+  {% if loop.last %} and{% endif %}
+  <span class="evttype" data-ind="{{ i }}">{{ event_verbs[event.type] }}</span>{%- if not loop.last -%},{%- endif -%}
+  {%- endfor %}.
+  <div class="hist-block">
+    <div id="event-chart"></div>
+  </div>
+{% else -%}
+  In the OSRC archives, {{stats.firstname}}'s only interaction with GitHub has been
+  {{event_actions[stats.events[0].type]}}.
+{%- endif %}
+</p>
+
+<p>
+{% if stats.languages|length > 1 -%}
+  {{stats.name}} has interacted with repositories in {{stats.languages|length}}
+  languages. In particular, {{stats.firstname}} seems to be a pretty serious
+  <strong>{{stats.languages[0].language}}</strong> enthusiast
+  {%- if (stats.languages[0].count-stats.languages[1].count)/stats.languages[0].count < 0.5 %}
+  with a significant interest in <strong>{{stats.languages[1].language}}</strong>
+  {%- endif -%}.
+  The following chart shows the number of interactions {{stats.firstname}} had with
+  repositories mainly written in
+  {%- for i, lang in enumerate(stats.languages) -%}
+  {% if loop.last %} and{% endif %}
+  <span class="evttype" data-ind="{{ i }}">{{lang.language}}</span>{%- if not loop.last -%},{%- endif -%}
+  {%- endfor %}.
+  <div class="hist-block">
+    <div id="lang-chart"></div>
+  </div>
+{% elif stats.languages|length > 0 -%}
+All {{stats.total}} of {{stats.firstname}}'s events recorded in the OSRC archives were with repositories mainly written in <strong>{{stats.languages[0].language}}</strong>.
+{%- endif %}
+
+{% if stats.friends|length > 1 and stats.repo_recs|length > 1 -%}
+</p>
+<h2 id="social">Social</h2>
+{% if stats.friends|length > 1 -%}
+<p>
+  Based on similarities between their GitHub activity streams, we think that {{stats.firstname}} should be friends with the following GitHub users:
+</p>
+  <div id="friends">
+  {% for friend in stats.friends %}
+  <a href="{{url_for('.user', username=friend.login)}}"><img src="{{friend.avatar_url}}&s=100" class="friend" title="{{friend.login}}" alt="{{friend.login}}" width="50" height="50"></a>
+  {% endfor %}
+  </div>
+{% endif %}
+{% if stats.repo_recs|length > 1 -%}
+<p>
+  The OSRC social graph can be used to make repository recommendations. Based on their activity, we think that {{stats.firstname}} &ndash; and possibly you &ndash; might be interested in checking out the following repositories:
+  <ul>
+  {% for repo in stats.repo_recs %}
+  <li><a href="{{url_for('.repo', username=repo.username, reponame=repo.reponame)}}">{{repo.name}}</a></li>
+  {%- endfor %}
+  </ul>
+
+{% endif %}
+{% endif %}
+
         {% else -%}
             doesn't really use GitHub very much.
         {%- endif %}
     {%- endif %}
   </p>
+
+  <h2>Summary</h2>
+  <p>
+  Like stats? Of course you do. Did you know that you can get access to <a href="{{url_for('api.user', username=stats.login)}}">the raw data that was used to generate this page in JSON format</a>?
+  </p>
+
+  <p>
+  Is this page about you? You don't like the things that it's saying?
+  I'm very sorry about that! Remember that it is just meant to be a toy
+  and not meant to be taken seriously but if you must, you're welcome to
+  <a href="{{ url_for('.optout', username=stats.login) }}">opt-out at any time</a>.
+  </p>
 </div>
 
 </div>
 
+<div class="footer">
+<div class="container">
+    The OSRC is based on the public event stream from <a href="https://www.githubarchive.org/">GitHub Archive</a>.<br>
+    Find the source or raise an issue <a href="https://github.com/dfm/osrc">on GitHub, obviously</a>.<br>
+    Made with &hearts; by <a href="http://dfm.io">Dan F-M</a> in NYC &amp; Seattle.<br>
+    This site is not affiliated with GitHub.<br>
+    Please don't take this too seriously.<br>
+    &copy; 2016 <a href="http://dfm.io">Dan F-M</a>
+</div>
+</div>
+
+<a href="/about"><div id="logo"></div></a>
+
+<script src="{{ url_for("static", filename="jquery.min.js") }}"></script>
+<script src="{{ url_for("static", filename="tipped.js") }}"></script>
 <script src="{{ url_for("static", filename="d3.min.js") }}"></script>
+<script src="{{ url_for("static", filename="plot.js") }}"></script>
 <script>
-// Automatically injected data for this user:
-var events={{stats.events|safe}},day={{stats.day|safe}},week={{stats.week|safe}};
+$(document).ready(function() {
+  Tipped.create(".friend");
+
+  // Automatically injected data for this user:
+  var events={{stats.events|safe}},day={{stats.day|safe}},week={{stats.week|safe}},langs={{stats.languages|safe}};
+
+  // Color event names:
+  var cb = d3.scale.category10();
+  d3.selectAll(".evttype").style("color", function (d) { return cb(+this.dataset.ind); });
+
+  // Histograms:
+  var week_hist = window.histogram().width(150).labels(["S","M","T","W","T","F","S"]);
+  d3.select("#week")
+    .datum(week[events[0].type].map(function (d, i) {
+      return events.map(function (d) { return week[d.type][i]; });
+    }))
+    .call(week_hist);
+  var day_hist = window.histogram().width(300).labels(["","","","3am","","","6am","","","9am","","","noon","","","3pm","","","6pm","","","9pm","",""]);
+  d3.select("#day")
+    .datum(day[events[0].type].map(function (d, i) {
+      return events.map(function (d) { return day[d.type][i]; });
+    }))
+    .call(day_hist);
+
+  // Pie-charts:
+  var event_pie = window.piechart().dim(200);
+  d3.select("#event-chart").datum(events).call(event_pie);
+  var lang_pie = window.piechart().dim(200);
+  d3.select("#lang-chart").datum(langs).call(lang_pie);
+});
 </script>
 
 </body>

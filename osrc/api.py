@@ -45,7 +45,7 @@ def error_handler_403(e):
 
 @api.route("/<username>", strict_slashes=False)
 @jsonp
-def user(username):
+def user(username=None):
     stats = user_stats(username)
     if stats is None:
         return flask.abort(404)
@@ -56,7 +56,7 @@ def user(username):
 
 @api.route("/<username>/<reponame>", strict_slashes=False)
 @jsonp
-def repo(username, reponame):
+def repo(username=None, reponame=None):
     stats = repo_stats(username, reponame)
     if stats is None:
         return flask.abort(404)
