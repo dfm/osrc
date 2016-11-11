@@ -1,16 +1,8 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>{{stats.login|trim}}'s Open Source Report Card</title>
+{% extends "base.html" %}
 
-<link rel="stylesheet" href="{{ url_for("static", filename="normalize.css") }}" type="text/css" media="screen" charset="utf-8">
-<link rel="stylesheet" href="{{ url_for("static", filename="tipped.css") }}" type="text/css" media="screen" charset="utf-8">
-<link rel="stylesheet" href="{{ url_for("static", filename="osrc.css") }}" type="text/css" media="screen" charset="utf-8">
+{% block title %}{{stats.login|trim}}'s Open Source Report Card{% endblock %}
 
-</head>
-<body>
-
+{% block body %}
 <div class="container">
 
 <div class="header">
@@ -21,9 +13,9 @@
 </div>
 
 <div class="content">
-  <p>
+<p>
     {{stats.name}}
-    {% if stats.login != stats.name -%}(known as <a href="https://github.com/{{stats.login}}">{{stats.login}} on GitHub</a>){%- endif %}
+    {% if stats.login|lower != stats.name|lower -%}(known as <a href="https://github.com/{{stats.login}}">{{stats.login}} on GitHub</a>){%- endif %}
     {% if stats.type == "Organization" -%}
         is an organization and the OSRC doesn't work for organizations yet.
     {% else -%}
@@ -38,7 +30,6 @@
                 Given their open source behavior, {{stats.firstname}} is (or should be) friends with
                 <a href="{{url_for('.user', username=stats.friends[0].login)}}">{{stats.friends[0].login}}</a>.
             {%- endif %}
-
 </p>
 
 <h2 id="schedule">{{stats.firstname}}'s Schedule</h2>
@@ -89,8 +80,8 @@
 {%- endif %}
 </p>
 
-<p>
 {% if stats.languages|length > 1 -%}
+<p>
   {{stats.name}} has interacted with repositories in {{stats.languages|length}}
   languages. In particular, {{stats.firstname}} seems to be a pretty serious
   <strong>{{stats.languages[0].language}}</strong> enthusiast
@@ -106,12 +97,32 @@
   <div class="hist-block">
     <div id="lang-chart"></div>
   </div>
+</p>
 {% elif stats.languages|length > 0 -%}
+<p>
 All {{stats.total}} of {{stats.firstname}}'s events recorded in the OSRC archives were with repositories mainly written in <strong>{{stats.languages[0].language}}</strong>.
+</p>
+{%- endif %}
+
+{% if stats.repos|length > 1 -%}
+<p>
+  In the OSRC archives, {{stats.name}} has mostly interacted with the following repositories:
+  {%- for i, repo in enumerate(stats.repos) -%}
+  {% if loop.last %} and{% endif %}
+  <span class="evttype" data-ind="{{ i }}"><a href="{{url_for('.repo', username=repo.username, reponame=repo.reponame)}}">{{repo.name}}</a></span>{%- if not loop.last -%},{%- endif -%}
+  {%- endfor %}.
+  The chart below shows the number of interactions with each of these repositories.
+  <div class="hist-block">
+    <div id="repo-chart"></div>
+  </div>
+</p>
+{% elif stats.repos|length > 0 -%}
+<p>
+{{stats.firstname}} has really only interacted with one repository: <strong>{{stats.repos[0].name}}</strong>.
+</p>
 {%- endif %}
 
 {% if stats.friends|length > 1 and stats.repo_recs|length > 1 -%}
-</p>
 <h2 id="social">Social</h2>
 {% if stats.friends|length > 1 -%}
 <p>
@@ -131,7 +142,7 @@ All {{stats.total}} of {{stats.firstname}}'s events recorded in the OSRC archive
   <li><a href="{{url_for('.repo', username=repo.username, reponame=repo.reponame)}}">{{repo.name}}</a></li>
   {%- endfor %}
   </ul>
-
+</p>
 {% endif %}
 {% endif %}
 
@@ -139,7 +150,6 @@ All {{stats.total}} of {{stats.firstname}}'s events recorded in the OSRC archive
             doesn't really use GitHub very much.
         {%- endif %}
     {%- endif %}
-  </p>
 
   <h2>Summary</h2>
   <p>
@@ -153,22 +163,10 @@ All {{stats.total}} of {{stats.firstname}}'s events recorded in the OSRC archive
   <a href="{{ url_for('.optout', username=stats.login) }}">opt-out at any time</a>.
   </p>
 </div>
-
 </div>
+{% endblock %}
 
-<div class="footer">
-<div class="container">
-    The OSRC is based on the public event stream from <a href="https://www.githubarchive.org/">GitHub Archive</a>.<br>
-    Find the source or raise an issue <a href="https://github.com/dfm/osrc">on GitHub, obviously</a>.<br>
-    Made with &hearts; by <a href="http://dfm.io">Dan F-M</a> in NYC &amp; Seattle.<br>
-    This site is not affiliated with GitHub.<br>
-    Please don't take this too seriously.<br>
-    &copy; 2016 <a href="http://dfm.io">Dan F-M</a>
-</div>
-</div>
-
-<a href="/about"><div id="logo">OS<br>RC</div></a>
-
+{% block scripts %}
 <script src="{{ url_for("static", filename="jquery.min.js") }}"></script>
 <script src="{{ url_for("static", filename="tipped.js") }}"></script>
 <script src="{{ url_for("static", filename="d3.min.js") }}"></script>
@@ -178,7 +176,7 @@ $(document).ready(function() {
   Tipped.create(".friend");
 
   // Automatically injected data for this user:
-  var events={{stats.events|safe}},day={{stats.day|safe}},week={{stats.week|safe}},langs={{stats.languages|safe}};
+  var events={{stats.events|safe}},day={{stats.day|safe}},week={{stats.week|safe}},langs={{stats.languages|safe}},repos={{stats.repos|safe}};
 
   // Color event names:
   var cb = d3.scale.category10();
@@ -203,8 +201,8 @@ $(document).ready(function() {
   d3.select("#event-chart").datum(events).call(event_pie);
   var lang_pie = window.piechart().dim(200);
   d3.select("#lang-chart").datum(langs).call(lang_pie);
+  var repo_pie = window.piechart().dim(200);
+  d3.select("#repo-chart").datum(repos).call(repo_pie);
 });
 </script>
-
-</body>
-</html>
+{% endblock %}

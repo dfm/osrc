@@ -15,6 +15,10 @@ def create_app(config_filename=None):
     if config_filename is not None:
         app.config.from_pyfile(config_filename)
 
+    # Rate limiting
+    from .rate_limit import limiter
+    limiter.init_app(app)
+
     # Set up the database.
     from .models import db
     db.init_app(app)

@@ -40,7 +40,14 @@ def repo(username=None, reponame=None):
     stats = repo_stats(username, reponame)
     if stats is None:
         return flask.abort(404)
-    return flask.render_template("repo.html", stats=stats)
+    with load_resource("event_verbs.json") as f:
+        event_verbs = json.load(f)
+    return flask.render_template(
+        "repo.html",
+        stats=stats,
+        event_verbs=event_verbs,
+        enumerate=enumerate,
+    )
 
 
 @frontend.route("/optout/<username>", strict_slashes=False)

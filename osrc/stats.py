@@ -8,13 +8,16 @@ from collections import defaultdict
 
 from . import github
 from .models import User, Repo
-from .utils import load_resource
+from .utils import load_resource, is_robot
 from .redis import get_pipeline, get_connection, format_key
 
 __all__ = ["user_stats", "repo_stats"]
 
 
 def user_stats(username, tz_offset=True):
+    if is_robot():
+        return None
+
     user = github.get_user(username)
     if user is None:
         return None
@@ -193,13 +196,24 @@ def repo_stats(username, reponame):
         ids = map(int, social[::2])
         repo_recs = list(zip(Repo.query.filter(Repo.id.in_(ids)).all(),
                              map(int, social[1::2])))
+    #
+    # EVENT COUNTS:
+    #
+    with get_pipeline() as pipe:
+        pipe.zrevrange(format_key("r:{0}:e".format(repo.id)), 0, 4,
+                       withscores=True)
+        event_counts = dict(((k.decode("ascii"), c)
+                             for k, c in pipe.execute()[0]))
 
     # Build the results dictionary.
     return dict(
         repo.basic_dict(),
         owner=None if repo.owner is None else repo.owner.basic_dict(),
-        contributors=[dict(u.short_dict(), count=c) for u, c in user_counts],
-        related_repos=[dict(r.short_dict(), weight=c) for r, c in repo_recs],
+        interactions=[dict(u.short_dict(), count=c) for u, c in user_counts],
+        repo_recs=[dict(r.short_dict(), weight=c) for r, c in repo_recs],
+        total=int(sum(event_counts.values())),
+        events=[{"type": t, "count": int(c)} for t, c in sorted(
+            event_counts.items(), reverse=True, key=operator.itemgetter(1))],
     )
 
 

@@ -1,7 +1,9 @@
 import os
 
+# App stuff
 DEBUG = True
 SECRET_KEY = "development key"
+RATELIMIT_HEADERS_ENABLED = True
 
 # Database stuff.
 pg_user = os.environ.get("POSTGRES_ENV_POSTGRES_USER", "postgres")
