@@ -22,6 +22,11 @@ def user(username):
     stats = user_stats(username)
     if stats is None:
         return flask.abort(404)
+    if stats is False:
+        return flask.render_template(
+            "optedout.html",
+            username=username,
+        )
     with load_resource("event_verbs.json") as f:
         event_verbs = json.load(f)
     with load_resource("event_actions.json") as f:
@@ -40,6 +45,11 @@ def repo(username=None, reponame=None):
     stats = repo_stats(username, reponame)
     if stats is None:
         return flask.abort(404)
+    if stats is False:
+        return flask.render_template(
+            "optedout.html",
+            username=username,
+        )
     with load_resource("event_verbs.json") as f:
         event_verbs = json.load(f)
     return flask.render_template(
@@ -55,11 +65,12 @@ def optout(username=None):
     return flask.render_template("optout.html", username=username)
 
 
-@frontend.route("/optout/<username>/login")
+@frontend.route("/optout/login/<username>", strict_slashes=False)
 def optout_login(username):
     state = "".join([random.choice(string.ascii_uppercase + string.digits)
                      for x in range(24)])
     flask.session["state"] = state
+    flask.session["optout_username"] = username
     params = dict(
         client_id=flask.current_app.config["GITHUB_ID"],
         redirect_uri=flask.url_for(".optout_callback", username=username,
@@ -70,8 +81,16 @@ def optout_login(username):
                           .format(urlencode(params)))
 
 
-@frontend.route("/optout/<username>/callback")
-def optout_callback(username):
+@frontend.route("/optout/callback", strict_slashes=False)
+@frontend.route("/optout/callback/<username>", strict_slashes=False)
+def optout_callback(username=None):
+    if username is None:
+        username = flask.session.get("optout_username")
+    if username is None:
+        flask.flash("Invalid username")
+        return flask.redirect(flask.url_for(".optout_error",
+                                            username=username))
+
     state1 = flask.session.get("state")
     state2 = flask.request.args.get("state")
     code = flask.request.args.get("code")
@@ -128,11 +147,13 @@ def optout_callback(username):
     return flask.redirect(flask.url_for(".optout_success", username=username))
 
 
-@frontend.route("/optout/<username>/error")
-def optout_error(username):
+@frontend.route("/optout/error", strict_slashes=False)
+@frontend.route("/optout/error/<username>", strict_slashes=False)
+def optout_error(username=None):
     return flask.render_template("optout-error.html", username=username)
 
 
-@frontend.route("/optout/<username>/success")
-def optout_success(username):
+@frontend.route("/optout/success", strict_slashes=False)
+@frontend.route("/optout/success/<username>", strict_slashes=False)
+def optout_success(username=None):
     return flask.render_template("optout-success.html")

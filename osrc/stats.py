@@ -8,16 +8,13 @@ from collections import defaultdict
 
 from . import github
 from .models import User, Repo
-from .utils import load_resource, is_robot
+from .utils import load_resource
 from .redis import get_pipeline, get_connection, format_key
 
 __all__ = ["user_stats", "repo_stats"]
 
 
 def user_stats(username, tz_offset=True):
-    if is_robot():
-        return None
-
     user = github.get_user(username)
     if user is None:
         return None
@@ -169,8 +166,10 @@ def user_stats(username, tz_offset=True):
 
 def repo_stats(username, reponame):
     repo = github.get_repo("{0}/{1}".format(username, reponame))
-    if repo is None or not repo.active or not repo.owner.active:
+    if repo is None or not repo.active:
         return None
+    if not repo.owner.active:
+        return False
 
     #
     # CONTRIBUTORS:
