@@ -1,0 +1,5 @@
+flask==0.10.1
+pip==7.1.2
+psycopg2==2.6.1
+sqlalchemy==1.0.9
+tornado==4.2.1

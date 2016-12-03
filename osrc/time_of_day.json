@@ -1,9 +1,0 @@
-[
-    {"times": [0, 1], "name": "around midnight"},
-    {"times": [1, 7], "name": "in the wee hours"},
-    {"times": [7, 12], "name": "in the morning"},
-    {"times": [12, 13], "name": "around noon"},
-    {"times": [13, 18], "name": "in the afternoon"},
-    {"times": [18, 21], "name": "in the evening"},
-    {"times": [21, 24], "name": "late at night"}
-]

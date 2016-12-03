@@ -1,9 +1,6 @@
 .DS_Store
 *.pyc
 venv
-flann
-values.sh
-data
 build
 dist
 *.egg-info
@@ -14,3 +11,5 @@ analytics.html
 *.sh
 *.log
 local.py
+volumes
+*.json.gz
