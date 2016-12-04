@@ -14,7 +14,7 @@ from .redis import get_pipeline, get_connection, format_key
 __all__ = ["user_stats", "repo_stats"]
 
 
-def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
+def user_stats(username, tz_offset=True):
     user = github.get_user(username)
     if user is None:
         return None
@@ -88,7 +88,7 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     # Correct for the timezone.
     if tz_offset and user.timezone:
         for t, v in day_hist.items():
-            day_hist[t] = roll(v, user.timezone)
+            day_hist[t] = roll(v, -user.timezone)
 
     #
     # PROSE DESCRIPTIONS:
@@ -150,11 +150,12 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     return dict(
         user.basic_dict(),
         descriptions=descriptions,
-        events=[{"type": t, "count": c} for t, c in sorted(
+        total=int(sum(total_hist.values())),
+        events=[{"type": t, "count": int(c)} for t, c in sorted(
             total_hist.items(), reverse=True, key=operator.itemgetter(1))],
         week=dict(week_hist),
         day=dict(day_hist),
-        languages=[{"language": l, "count": c}
+        languages=[{"language": l, "count": int(c)}
                    for l, c in sorted(languages.items(), reverse=True,
                                       key=operator.itemgetter(1))],
         repos=[dict(r.short_dict(), count=c) for r, c in repo_counts],
@@ -165,8 +166,10 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
 
 def repo_stats(username, reponame):
     repo = github.get_repo("{0}/{1}".format(username, reponame))
-    if repo is None or not repo.active or not repo.owner.active:
+    if repo is None or not repo.active:
         return None
+    if not repo.owner.active:
+        return False
 
     #
     # CONTRIBUTORS:
@@ -192,13 +195,24 @@ def repo_stats(username, reponame):
         ids = map(int, social[::2])
         repo_recs = list(zip(Repo.query.filter(Repo.id.in_(ids)).all(),
                              map(int, social[1::2])))
+    #
+    # EVENT COUNTS:
+    #
+    with get_pipeline() as pipe:
+        pipe.zrevrange(format_key("r:{0}:e".format(repo.id)), 0, 4,
+                       withscores=True)
+        event_counts = dict(((k.decode("ascii"), c)
+                             for k, c in pipe.execute()[0]))
 
     # Build the results dictionary.
     return dict(
         repo.basic_dict(),
         owner=None if repo.owner is None else repo.owner.basic_dict(),
-        contributors=[dict(u.short_dict(), count=c) for u, c in user_counts],
-        related_repos=[dict(r.short_dict(), weight=c) for r, c in repo_recs],
+        interactions=[dict(u.short_dict(), count=c) for u, c in user_counts],
+        repo_recs=[dict(r.short_dict(), weight=c) for r, c in repo_recs],
+        total=int(sum(event_counts.values())),
+        events=[{"type": t, "count": int(c)} for t, c in sorted(
+            event_counts.items(), reverse=True, key=operator.itemgetter(1))],
     )
 
 

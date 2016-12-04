@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{username}} has opted-out of the OSRC{% endblock %}
+{% block body %}
+
+<div class="container">
+    <h2>{{ username }}</h2>
+    <p>
+        {{username}} has opted-out of being listed on the OSRC.
+        If this is you and if you want your account re-enabled,
+        <a href="mailto:osrc@dfm.io">send me an email</a>.
+    </p>
+</div>
+
+{% endblock %}

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>{% block title %}The Open Source Report Card{% endblock %}</title>
+
+<link rel="stylesheet" href="{{ url_for("static", filename="normalize.css") }}" type="text/css" media="screen" charset="utf-8">
+<link rel="stylesheet" href="{{ url_for("static", filename="tipped.css") }}" type="text/css" media="screen" charset="utf-8">
+<link rel="stylesheet" href="{{ url_for("static", filename="osrc.css") }}" type="text/css" media="screen" charset="utf-8">
+
+{% block extraheader %}{% endblock %}
+
+</head>
+<body>
+
+{% block body %}{% endblock %}
+
+
+<div class="footer">
+<div class="container">
+    The OSRC is based on the public event stream from <a href="https://www.githubarchive.org/">GitHub Archive</a>.<br>
+    Find the source or raise an issue <a href="https://github.com/dfm/osrc">on GitHub, obviously</a>.<br>
+    Made with &hearts; by <a href="http://dfm.io">Dan F-M</a> in NYC &amp; Seattle.<br>
+    This site is not affiliated with GitHub.<br>
+    Please don't take this too seriously.<br>
+    &copy; 2016 <a href="http://dfm.io">Dan F-M</a>
+</div>
+</div>
+
+<a href="/about"><div id="logo">OS<br>RC</div></a>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

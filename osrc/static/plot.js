@@ -133,7 +133,7 @@
                     .innerRadius(0),
             plo = d3.layout.pie()
                     .sort(null)
-                    .value(function(d) { return d; });
+                    .value(function(d) { return d.count; });
 
         sel.enter().append("svg")
 
@@ -164,7 +164,7 @@
           })
           .attr("dy", ".35em")
           .style("text-anchor", "middle")
-          .text(function(d) { return d.data; })
+          .text(function(d, i) { return d.data.count; })
           .style("stroke", function(d, i) { return cb(i); });
 
         sel.exit().remove();
