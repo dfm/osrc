@@ -1,0 +1,21 @@
+{
+    "CommitComment": "commit comments",
+    "Create": "new repos or branches",
+    "Delete": "deletion of branches",
+    "Download": "creation of downloads",
+    "Follow": "following",
+    "Fork": "forking",
+    "ForkApply": "fork merges",
+    "Gist": "gist creation",
+    "Gollum": "wiki edits",
+    "IssueComment": "issue comments",
+    "Issues": "new issues",
+    "Member": "new collaborations",
+    "Public": "open-sourcing",
+    "PullRequest": "pull requests",
+    "PullRequestReviewComment": "pull request comments",
+    "Push": "pushes",
+    "TeamAdd": "teams",
+    "Watch": "watching",
+    "Release": "new releases"
+}

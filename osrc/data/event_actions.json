@@ -1,0 +1,10 @@
+{
+    "Create": "creating new repositories and branches",
+    "CommitComment": "commenting on your commits",
+    "Follow": "following other users",
+    "Fork": "forking other people's code",
+    "Issues": "creating issues",
+    "IssueComment": "commenting on issues",
+    "Public": "open sourcing new projects",
+    "PullRequest": "submitting pull requests"
+}

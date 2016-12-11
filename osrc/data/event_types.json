@@ -1,0 +1,10 @@
+{
+    "Push": "is {more} of a pusher",
+    "Create": "spends {more} of their time creating new repositories and branches",
+    "CommitComment": "is far {more} likely to comment on your commits",
+    "Follow": "is {more} of a follower",
+    "Fork": "is a {more} serious forker",
+    "IssueComment": "spends {more} of their time commenting on issues",
+    "Public": "is {more} likely to open source a new project",
+    "PullRequest": "submits pull requests {more} frequently"
+}
