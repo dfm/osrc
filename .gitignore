@@ -13,3 +13,5 @@ analytics.html
 local.py
 volumes
 *.json.gz
+redis-data/
+postgresql-data/

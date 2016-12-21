@@ -1,0 +1,34 @@
+version: '2'
+services:
+  web:
+    build: .
+    command: sh -c "python manage.py runserver -h 0.0.0.0 -p ${WEB_RUNSERVER_PORT}"
+    working_dir: /App
+
+    volumes:
+      - .:/App
+
+    ports:
+     - "${WEB_RUNSERVER_PORT}:${WEB_RUNSERVER_PORT}"
+
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:9.6
+
+    environment:
+      POSTGRES_DB: osrc
+      POSTGRES_USER: osrc
+      POSTGRES_PASSWORD: osrc
+      PGDATA: /PGData
+
+    volumes:
+      - ./postgresql-data:/PGData
+
+  redis:
+    image: redis:3.2
+
+    volumes:
+      - ./redis-data:/data

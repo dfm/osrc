@@ -3,9 +3,22 @@ The Open Source Report Card (v3)
 
 A work in progress... hopefully we'll have the OSRC back up soon!
 
+Installation (docker-compose)
+-----------------------------
+If you have docker-compose installed just use:
+
+> docker-compose up
+
+to run on a different port than 5000 set environment variable WEB_RUNSERVER_PORT
+
+> WEB_RUNSERVER_PORT=8000 docker-compose up
+
+More details check docker-compose.yml and Dockerfile
+
+
+
 Installation
 ------------
-
 Set up the environment:
 
 ```
