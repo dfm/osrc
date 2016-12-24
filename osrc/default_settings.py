@@ -1,7 +1,7 @@
 import os
 
 # App stuff
-DEBUG = True
+DEBUG = False
 SECRET_KEY = "development key"
 RATELIMIT_HEADERS_ENABLED = True
 

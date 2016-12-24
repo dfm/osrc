@@ -2,7 +2,7 @@ version: '2'
 services:
   web:
     build: .
-    command: sh -c "python manage.py runserver -h 0.0.0.0 -p 5000"
+    command: sh -c "python run.py -p 5000 -f /osrc/local.py"
     working_dir: /osrc
     volumes:
       - .:/osrc
