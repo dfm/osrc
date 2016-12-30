@@ -8,7 +8,7 @@ from collections import defaultdict
 
 from . import github
 from .models import User, Repo
-from .utils import load_resource
+from .utils import load_json_resource, load_text_resource
 from .redis import get_pipeline, get_connection, format_key
 
 __all__ = ["user_stats", "repo_stats"]
@@ -41,8 +41,8 @@ def user_stats(username, tz_offset=True):
     #
     # FRIENDS:
     #
-    with load_resource("graph_user_user.lua") as script:
-        get_users = get_connection().register_script(script.read())
+    script = load_text_resource("graph_user_user.lua")
+    get_users = get_connection().register_script(script)
     social = get_users(keys=["{0}".format(user.id).encode("ascii")],
                        args=[flask.current_app.config["REDIS_PREFIX"]])
     friends = []
@@ -54,8 +54,8 @@ def user_stats(username, tz_offset=True):
     #
     # SIMILAR REPOS:
     #
-    with load_resource("graph_user_repo.lua") as script:
-        get_repos = get_connection().register_script(script.read())
+    script = load_text_resource("graph_user_repo.lua")
+    get_repos = get_connection().register_script(script)
     repo_scores = get_repos(keys=["{0}".format(user.id).encode("ascii")],
                             args=[flask.current_app.config["REDIS_PREFIX"]])
     repo_recs = []
@@ -103,8 +103,7 @@ def user_stats(username, tz_offset=True):
     norm = sqrt(sum([v * v for v in h]))
     if norm > 0.0:
         # A description of the most active day.
-        with load_resource("days.json") as f:
-            days = json.load(f)
+        days = load_json_resource("days.json")
         h = [_ / norm for _ in h]
         best = -1.0
         for d in days:
@@ -116,8 +115,7 @@ def user_stats(username, tz_offset=True):
                 day_desc = d["name"]
 
         # A description of the most active time.
-        with load_resource("times.json") as f:
-            time_desc = json.load(f)
+        time_desc = load_json_resource("times.json")
         h = [0 for _ in range(24)]
         for v in day_hist.values():
             for i, c in enumerate(v):
@@ -125,18 +123,15 @@ def user_stats(username, tz_offset=True):
         time_desc = time_desc[sorted(zip(h, range(24)))[-1][1]]
 
         # Choose an adjective deterministically.
-        with load_resource("adjectives.json") as f:
-            adjs = json.load(f)
+        adjs = load_json_resource("adjectives.json")
         lang = "coder"
         if len(languages):
-            with load_resource("languages.json") as f:
-                langs = json.load(f)
+            langs = load_json_resource("languages.json")
             l = sorted(languages.items(), key=operator.itemgetter(1))[-1]
             lang = langs.get(l[0], l[0] + " coder")
 
         # Describe the most common event type.
-        with load_resource("event_actions.json") as f:
-            acts = json.load(f)
+        acts = load_json_resource("event_actions.json")
         a = sorted(total_hist.items(), key=operator.itemgetter(1))[-1]
         action = acts.get(a[0], "pushing code")
 
@@ -189,8 +184,8 @@ def repo_stats(username, reponame):
     # SIMILAR REPOS:
     #
     repo_recs = []
-    with load_resource("graph_repo_repo.lua") as script:
-        get_repos = get_connection().register_script(script.read())
+    script = load_text_resource("graph_repo_repo.lua")
+    get_repos = get_connection().register_script(script)
     social = get_repos(keys=["{0}".format(repo.id).encode("ascii")],
                        args=[flask.current_app.config["REDIS_PREFIX"]])
     if len(social):

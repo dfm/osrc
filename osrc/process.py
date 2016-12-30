@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from . import google
-from .utils import load_resource
+from .utils import load_json_resource
 from .models import db, User, Repo
 
 __all__ = [
@@ -77,8 +77,7 @@ def process_user(user, etag=None):
     update_tz = True
     if user_obj is None:
         # Make sure that users who opted out previously have active=False.
-        with load_resource("optout.txt") as f:
-            optouts = f.read().split("\n")
+        optouts = load_json_resource("optout.json")
 
         user_obj = User(
             id=user["id"],

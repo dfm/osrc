@@ -9,7 +9,7 @@ from sqlalchemy import func
 from urllib.parse import urlencode
 
 from .models import db, User
-from .utils import load_resource
+from .utils import load_json_resource
 from .stats import user_stats, repo_stats
 
 __all__ = ["frontend"]
@@ -27,10 +27,9 @@ def user(username):
             "optedout.html",
             username=username,
         )
-    with load_resource("event_verbs.json") as f:
-        event_verbs = json.load(f)
-    with load_resource("event_actions.json") as f:
-        event_actions = json.load(f)
+
+    event_verbs = load_json_resource("event_verbs.json")
+    event_actions = load_json_resource("event_actions.json")
     return flask.render_template(
         "user.html",
         stats=stats,
@@ -50,8 +49,7 @@ def repo(username=None, reponame=None):
             "optedout.html",
             username=username,
         )
-    with load_resource("event_verbs.json") as f:
-        event_verbs = json.load(f)
+    event_verbs = load_json_resource("event_verbs.json")
     return flask.render_template(
         "repo.html",
         stats=stats,
