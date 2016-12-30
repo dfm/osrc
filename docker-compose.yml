@@ -2,12 +2,12 @@ version: '2'
 services:
   web:
     build: .
-    command: sh -c "python run.py -p 5000 -f /osrc/local.py"
+    command: sh -c "python run.py -p 3789 -f /osrc/local.py"
     working_dir: /osrc
     volumes:
       - .:/osrc
     ports:
-      - "5000:5000"
+      - "3789:3789"
     depends_on:
       - db
       - redis

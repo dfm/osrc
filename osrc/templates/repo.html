@@ -14,7 +14,7 @@
 
 <div class="content">
   <p>
-    <a href="https://github.com/{{stats.name}}">{{stats.name}}</a> is a GitHub repository &ndash; written mainly in {{stats.language}} &ndash;
+    <a href="https://github.com/{{stats.name}}">{{stats.name}}</a> is a GitHub repository {% if stats.language %}&ndash; written mainly in {{stats.language}} &ndash;{% endif %}
     owned by <a href="{{url_for('.user', username=stats.owner.login)}}">{{stats.owner.name}}</a>{%- if stats.owner.login|lower != stats.owner.name|lower %} (known as <a href="https://github.com/{{stats.owner.login}}">{{stats.owner.login}} on GitHub</a>){%- endif %}.
     {% if stats.stars > 1 and stats.watchers > 1 %}
       It has {{stats.stars}} stars and it is being watched by {{stats.watchers}} GitHub users.

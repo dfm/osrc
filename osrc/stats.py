@@ -31,6 +31,8 @@ def user_stats(username, tz_offset=True):
     languages = defaultdict(int)
     for repo_id, count in repos:
         r = github.get_repo(id=int(repo_id))
+        if r is None:
+            continue
         repo_counts.append((r, int(count)))
         if r.language is None:
             continue

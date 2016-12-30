@@ -145,7 +145,7 @@ class Parser(object):
             ", ".join(map("temp_gh_repos.{0}".format, all_repo_keys))
         ))
 
-        self.cursor.execute("commit;")
+        # self.cursor.execute("commit;")
 
         print("... processed {0} events in {1} seconds"
               .format(count, time.time() - strt))

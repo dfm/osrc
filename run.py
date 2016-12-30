@@ -22,6 +22,7 @@ if __name__ == "__main__":
                         help="a Python file with the app settings")
     args = parser.parse_args()
     print("port: {0}".format(args.port))
+    print("config: {0}".format(args.filename))
 
     app = create_app(args.filename)
     if args.debug:
