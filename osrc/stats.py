@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import json
 import flask
 import operator
 from math import sqrt
@@ -18,7 +17,7 @@ def user_stats(username, tz_offset=True):
     user = github.get_user(username)
     if user is None:
         return None
-    if not user.active:
+    if not user.is_active:
         return False
 
     #
@@ -165,7 +164,7 @@ def repo_stats(username, reponame):
     repo = github.get_repo("{0}/{1}".format(username, reponame))
     if repo is None or not repo.active:
         return None
-    if not repo.owner.active:
+    if not repo.owner.is_active:
         return False
 
     #

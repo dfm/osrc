@@ -11,7 +11,7 @@ __all__ = ["load_resource", "load_json_resource", "load_text_resource",
 def load_resource(
     filename,
     base=os.path.join(os.path.dirname(os.path.abspath(__file__)), "data"),
-    handler=lambda f: f.read()
+    handler=lambda fh: fh.read()
 ):
     if "resources" not in flask.g:
         flask.g.resources = dict()

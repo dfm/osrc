@@ -2,6 +2,8 @@
 
 from flask_sqlalchemy import SQLAlchemy
 
+from .utils import load_json_resource
+
 __all__ = ["db", "User", "Repo"]
 
 
@@ -25,6 +27,13 @@ class User(db.Model):
     # Computed by OSRC.
     timezone = db.Column(db.Integer)
     active = db.Column(db.Boolean, default=True)
+
+    @property
+    def is_active(self):
+        if not self.active:
+            return False
+        names = load_json_resource("optout.json")
+        return not (self.login.lower() in names)
 
     @property
     def render_name(self):

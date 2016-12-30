@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import json
 import flask
 import string
 import random
