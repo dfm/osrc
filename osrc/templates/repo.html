@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}{{stats.name|trim}} on the Open Source Report Card{% endblock %}
+
+{% block body %}
+<div class="container">
+
+<div class="header">
+<div class="avatar">
+    <img src="{{stats.owner.avatar_url}}&s=200" alt="avatar-img" width="100" height="100">
+</div>
+<div class="titles">{{stats.name}}</div>
+</div>
+
+<div class="content">
+  <p>
+    <a href="https://github.com/{{stats.name}}">{{stats.name}}</a> is a GitHub repository {% if stats.language %}&ndash; written mainly in {{stats.language}} &ndash;{% endif %}
+    owned by <a href="{{url_for('.user', username=stats.owner.login)}}">{{stats.owner.name}}</a>{%- if stats.owner.login|lower != stats.owner.name|lower %} (known as <a href="https://github.com/{{stats.owner.login}}">{{stats.owner.login}} on GitHub</a>){%- endif %}.
+    {% if stats.stars > 1 and stats.watchers > 1 %}
+      It has {{stats.stars}} stars and it is being watched by {{stats.watchers}} GitHub users.
+    {% endif %}
+  </p>
+
+{% if stats.interactions|length > 1 or stats.events|length > 1 -%}
+  <h2>Interactions</h2>
+{% endif %}
+{% if stats.events|length > 1 -%}
+  <p>
+  In the OSRC archives, there are <strong>{{stats.total}}</strong> interactions recorded with {{stats.name}}.
+  The colors in the pie chart below indicate the total number of interactions of each of the following types:
+  {%- for i, event in enumerate(stats.events) -%}
+  {% if loop.last %} and{% endif %}
+  <span class="evttype" data-ind="{{ i }}">{{ event_verbs[event.type] }}</span>{%- if not loop.last -%},{%- endif -%}
+  {%- endfor %}.
+  <div class="hist-block">
+    <div id="event-chart"></div>
+  </div>
+</p>
+{% endif %}
+{% if stats.interactions|length > 1 %}
+  <p>
+    In the OSRC dataset, the following users have had the most interactions with this repository:
+  </p>
+  <div id="friends">
+  {% for friend in stats.interactions %}
+  <a href="{{url_for('.user', username=friend.login)}}"><img src="{{friend.avatar_url}}&s=100" class="friend" title="{{friend.login}}" alt="{{friend.login}}" width="50" height="50"></a>
+  {% endfor %}
+  </div>
+{% endif %}
+
+{% if stats.repo_recs|length > 1 -%}
+  <h2>Similar repos</h2>
+  <p>
+  The OSRC social graph can be used to make repository recommendations. Based on the activity in the OSRC archives, we think that if you're interested in {{stats.name}}, you should also check out the following repositories:
+    <ul>
+    {% for repo in stats.repo_recs %}
+    <li><a href="{{url_for('.repo', username=repo.username, reponame=repo.reponame)}}">{{repo.name}}</a></li>
+    {%- endfor %}
+    </ul>
+  </p>
+{% endif %}
+
+  <h2>Summary</h2>
+  <p>
+  Like stats? Of course you do. Did you know that you can get access to <a href="{{url_for('api.repo', username=stats.username, reponame=stats.reponame)}}">the raw data that was used to generate this page in JSON format</a>?
+  </p>
+
+  <p>
+  Is this page about a repository that you own? You don't like the things that it's saying?
+  I'm very sorry about that! Remember that it is just meant to be a toy
+  and not meant to be taken seriously but if you must, you're welcome to
+  <a href="{{ url_for('.optout', username=stats.owner.login) }}">opt-out at any time</a>.
+  </p>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for("static", filename="jquery.min.js") }}"></script>
+<script src="{{ url_for("static", filename="tipped.js") }}"></script>
+<script src="{{ url_for("static", filename="d3.min.js") }}"></script>
+<script src="{{ url_for("static", filename="plot.js") }}"></script>
+<script>
+$(document).ready(function() {
+  Tipped.create(".friend");
+
+  // Automatically injected data:
+  var events={{stats.events|safe}};
+  var cb = d3.scale.category10();
+  d3.selectAll(".evttype").style("color", function (d) { return cb(+this.dataset.ind); });
+  var event_pie = window.piechart().dim(200);
+  d3.select("#event-chart").datum(events).call(event_pie);
+});
+</script>
+{% endblock %}

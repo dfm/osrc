@@ -1,3 +1,5 @@
+@import 'https://fonts.googleapis.com/css?family=Source+Sans+Pro:900';
+
 html {
     color-profile: sRGB;
     rendering-intent: auto;
@@ -5,7 +7,6 @@ html {
 
 body {
     font-family: Georgia, "Times New Roman", Times, serif;
-    /* font-family: "Helvetica Neue", helvetica, sans-serif; */
     font-size: 16px;
     line-height: 27px;
     background: rgb(236, 236, 234);
@@ -25,6 +26,35 @@ a {
 .header {
     text-align: center;
     margin: 50px 0 30px;
+}
+
+.footer {
+    margin-top: 100px;
+    padding: 30px 0;
+    border-top: 1px solid #ddd;
+    width: 100%;
+    text-align: center;
+
+    font-size: 12px;
+    line-height: 18px;
+    color: #999;
+}
+
+#logo {
+    display: block;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    width: 36px;
+    height: 36px;
+    font-size: 21px;
+    line-height: 18px;
+    font-weight: 900;
+    text-align: center;
+    padding: 5px;
+    border: 5px solid #222;
+    color: #222;
+    font-family: 'Source Sans Pro', sans-serif;
 }
 
 .avatar {
@@ -49,23 +79,56 @@ a {
     overflow: hidden;
 }
 
-.titles ul {
+h2 {
+    color: #928452;
+    text-align: center;
+    text-transform: uppercase;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1.1em;
+    font-weight: 500;
+    letter-spacing: .1em;
+    line-height: 150%;
+    padding-top: 30px;
+}
+
+p {
+    text-align:justify;
+}
+
+#friends {
+    text-align: center;
+    padding: 10px 0;
+    height: 50px;
+}
+
+.friend {
+    padding: 0 5px;
+    width: 50px;
+    height: 50px;
+    border-radius: 4px;
+}
+
+/* plotting */
+.hist-block {
+    text-align: center;
+}
+
+.hist {
     display: inline-block;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    line-height: 22px;
-    font-size: 16px;
+    margin: 10px 20px 0;
 }
 
-.left-titles {
-    text-align: right;
+rect {
+    fill-opacity: .8;
 }
 
-.right-titles {
-    text-align: left;
-    color: #cb4b16;
-    /* font-weight: bold; */
-    /* color: #859900; */
+text {
+    font-family: "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 11px;
+    color: #222;
 }
 
+line.axis {
+    stroke: #222;
+    stroke-width: 1px;
+}

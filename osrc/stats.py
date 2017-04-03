@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import json
 import flask
 import operator
 from math import sqrt
@@ -8,17 +7,17 @@ from collections import defaultdict
 
 from . import github
 from .models import User, Repo
-from .utils import load_resource
+from .utils import load_json_resource, load_text_resource
 from .redis import get_pipeline, get_connection, format_key
 
 __all__ = ["user_stats", "repo_stats"]
 
 
-def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
+def user_stats(username, tz_offset=True):
     user = github.get_user(username)
     if user is None:
         return None
-    if not user.active:
+    if not user.is_active:
         return False
 
     #
@@ -31,6 +30,8 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     languages = defaultdict(int)
     for repo_id, count in repos:
         r = github.get_repo(id=int(repo_id))
+        if r is None:
+            continue
         repo_counts.append((r, int(count)))
         if r.language is None:
             continue
@@ -39,8 +40,8 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     #
     # FRIENDS:
     #
-    with load_resource("graph_user_user.lua") as script:
-        get_users = get_connection().register_script(script.read())
+    script = load_text_resource("graph_user_user.lua")
+    get_users = get_connection().register_script(script)
     social = get_users(keys=["{0}".format(user.id).encode("ascii")],
                        args=[flask.current_app.config["REDIS_PREFIX"]])
     friends = []
@@ -52,8 +53,8 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     #
     # SIMILAR REPOS:
     #
-    with load_resource("graph_user_repo.lua") as script:
-        get_repos = get_connection().register_script(script.read())
+    script = load_text_resource("graph_user_repo.lua")
+    get_repos = get_connection().register_script(script)
     repo_scores = get_repos(keys=["{0}".format(user.id).encode("ascii")],
                             args=[flask.current_app.config["REDIS_PREFIX"]])
     repo_recs = []
@@ -88,7 +89,7 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     # Correct for the timezone.
     if tz_offset and user.timezone:
         for t, v in day_hist.items():
-            day_hist[t] = roll(v, user.timezone)
+            day_hist[t] = roll(v, -user.timezone)
 
     #
     # PROSE DESCRIPTIONS:
@@ -101,8 +102,7 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     norm = sqrt(sum([v * v for v in h]))
     if norm > 0.0:
         # A description of the most active day.
-        with load_resource("days.json") as f:
-            days = json.load(f)
+        days = load_json_resource("days.json")
         h = [_ / norm for _ in h]
         best = -1.0
         for d in days:
@@ -114,8 +114,7 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
                 day_desc = d["name"]
 
         # A description of the most active time.
-        with load_resource("times.json") as f:
-            time_desc = json.load(f)
+        time_desc = load_json_resource("times.json")
         h = [0 for _ in range(24)]
         for v in day_hist.values():
             for i, c in enumerate(v):
@@ -123,18 +122,15 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
         time_desc = time_desc[sorted(zip(h, range(24)))[-1][1]]
 
         # Choose an adjective deterministically.
-        with load_resource("adjectives.json") as f:
-            adjs = json.load(f)
+        adjs = load_json_resource("adjectives.json")
         lang = "coder"
         if len(languages):
-            with load_resource("languages.json") as f:
-                langs = json.load(f)
+            langs = load_json_resource("languages.json")
             l = sorted(languages.items(), key=operator.itemgetter(1))[-1]
             lang = langs.get(l[0], l[0] + " coder")
 
         # Describe the most common event type.
-        with load_resource("event_actions.json") as f:
-            acts = json.load(f)
+        acts = load_json_resource("event_actions.json")
         a = sorted(total_hist.items(), key=operator.itemgetter(1))[-1]
         action = acts.get(a[0], "pushing code")
 
@@ -150,11 +146,12 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
     return dict(
         user.basic_dict(),
         descriptions=descriptions,
-        events=[{"type": t, "count": c} for t, c in sorted(
+        total=int(sum(total_hist.values())),
+        events=[{"type": t, "count": int(c)} for t, c in sorted(
             total_hist.items(), reverse=True, key=operator.itemgetter(1))],
         week=dict(week_hist),
         day=dict(day_hist),
-        languages=[{"language": l, "count": c}
+        languages=[{"language": l, "count": int(c)}
                    for l, c in sorted(languages.items(), reverse=True,
                                       key=operator.itemgetter(1))],
         repos=[dict(r.short_dict(), count=c) for r, c in repo_counts],
@@ -165,8 +162,10 @@ def user_stats(username, tz_offset=True, max_connected=5, max_users=50):
 
 def repo_stats(username, reponame):
     repo = github.get_repo("{0}/{1}".format(username, reponame))
-    if repo is None or not repo.active or not repo.owner.active:
+    if repo is None or not repo.active:
         return None
+    if not repo.owner.is_active:
+        return False
 
     #
     # CONTRIBUTORS:
@@ -184,21 +183,32 @@ def repo_stats(username, reponame):
     # SIMILAR REPOS:
     #
     repo_recs = []
-    with load_resource("graph_repo_repo.lua") as script:
-        get_repos = get_connection().register_script(script.read())
+    script = load_text_resource("graph_repo_repo.lua")
+    get_repos = get_connection().register_script(script)
     social = get_repos(keys=["{0}".format(repo.id).encode("ascii")],
                        args=[flask.current_app.config["REDIS_PREFIX"]])
     if len(social):
         ids = map(int, social[::2])
         repo_recs = list(zip(Repo.query.filter(Repo.id.in_(ids)).all(),
                              map(int, social[1::2])))
+    #
+    # EVENT COUNTS:
+    #
+    with get_pipeline() as pipe:
+        pipe.zrevrange(format_key("r:{0}:e".format(repo.id)), 0, 4,
+                       withscores=True)
+        event_counts = dict(((k.decode("ascii"), c)
+                             for k, c in pipe.execute()[0]))
 
     # Build the results dictionary.
     return dict(
         repo.basic_dict(),
         owner=None if repo.owner is None else repo.owner.basic_dict(),
-        contributors=[dict(u.short_dict(), count=c) for u, c in user_counts],
-        related_repos=[dict(r.short_dict(), weight=c) for r, c in repo_recs],
+        interactions=[dict(u.short_dict(), count=c) for u, c in user_counts],
+        repo_recs=[dict(r.short_dict(), weight=c) for r, c in repo_recs],
+        total=int(sum(event_counts.values())),
+        events=[{"type": t, "count": int(c)} for t, c in sorted(
+            event_counts.items(), reverse=True, key=operator.itemgetter(1))],
     )
 
 

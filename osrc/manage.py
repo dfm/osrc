@@ -2,7 +2,7 @@
 
 import glob
 
-from flask.ext.script import Command, Option
+from flask_script import Command, Option
 
 from .models import db
 from .update import update

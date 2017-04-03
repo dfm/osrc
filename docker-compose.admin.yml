@@ -1,0 +1,9 @@
+version: '2'
+services:
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    depends_on:
+      - db
+      - redis

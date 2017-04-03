@@ -1,0 +1,31 @@
+version: '2'
+services:
+  web:
+    build: .
+    command: sh -c "python run.py -p 3789 -f /osrc/local.py"
+    working_dir: /osrc
+    volumes:
+      - .:/osrc
+    ports:
+      - "3789:3789"
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:9.6
+
+    environment:
+      POSTGRES_DB: osrc
+      POSTGRES_USER: osrc
+      POSTGRES_PASSWORD: osrc
+      PGDATA: /PGData
+
+    volumes:
+      - ./postgresql-data:/PGData
+
+  redis:
+    image: redis:3.2
+
+    volumes:
+      - ./redis-data:/data

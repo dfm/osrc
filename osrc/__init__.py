@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import os
 import flask
 
 __all__ = ["create_app"]
@@ -12,8 +13,14 @@ def before_first_request():
 def create_app(config_filename=None):
     app = flask.Flask(__name__)
     app.config.from_object("osrc.default_settings")
+    if "OSRC_SETTINGS" in os.environ:
+        app.config.from_envvar("OSRC_SETTINGS")
     if config_filename is not None:
         app.config.from_pyfile(config_filename)
+
+    # Rate limiting
+    from .rate_limit import limiter
+    limiter.init_app(app)
 
     # Set up the database.
     from .models import db

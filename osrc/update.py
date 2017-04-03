@@ -145,7 +145,7 @@ class Parser(object):
             ", ".join(map("temp_gh_repos.{0}".format, all_repo_keys))
         ))
 
-        self.cursor.execute("commit;")
+        # self.cursor.execute("commit;")
 
         print("... processed {0} events in {1} seconds"
               .format(count, time.time() - strt))
@@ -170,23 +170,27 @@ class Parser(object):
         user_id = self._process_user(event["actor"])
         repo_id = self._process_repo(event["repo"])
 
+        # Extract the relevant information from the event
+        evt = event["type"][:-5]
         dt = parse_datetime(event["created_at"])
         day = dt.weekday()
         hour = dt.hour
+
+        # Social counts
         key = "u:{0}:r".format(user_id)
         self._redis_execute(pipe, "zincrby", key, repo_id, 1)
-
         key = "r:{0}:u".format(repo_id)
         self._redis_execute(pipe, "zincrby", key, user_id, 1)
 
-        evt = event["type"][:-5]
+        # User-event counts and histogram
         key = "u:{0}:e".format(user_id)
         self._redis_execute(pipe, "zincrby", key, evt, 1)
         key = "u:{0}:e:{1}".format(user_id, evt)
         self._redis_update_hist(pipe, key, day, hour)
 
-        key = "r:{0}:e:{1}".format(repo_id, evt)
-        self._redis_update_hist(pipe, key, day, hour)
+        # Repo-event counts
+        key = "r:{0}:e".format(repo_id)
+        self._redis_execute(pipe, "zincrby", key, evt, 1)
 
         # Parse any event specific elements.
         parser = self.event_types.get(event["type"], None)
