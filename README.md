@@ -39,6 +39,38 @@ These tables can also be dropped using:
 python manage.py drop
 ```
 
+Installation using python
+------------------------------------
+Clone the repository from GitHub
+```
+git clone https://github.com/dfm/osrc.git
+```
+
+
+Open PyCharm and create a new project from the cloned repository.
+Open a terminal in PyCharm and navigate to the project directory.
+
+
+Create a new virtual environment
+```
+python -m venv env
+```
+Activate the virtual environment
+```
+source env/bin/activate
+```
+Install the required packages
+```
+pip install -r requirements.txt
+```
+
+Create the database tables
+```createdb osrc```
+
+```python manage.py create ```
+
+Run the server
+```python manage.py runserver```
 
 License & Credits
 -----------------
